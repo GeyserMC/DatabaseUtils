@@ -1,0 +1,32 @@
+# Ignore everything by default
+*
+
+!.gitignore
+!README.md
+!LICENSE
+!license_header.txt
+
+# Don't ignore specific gradle files and folders
+!gradle
+!gradle/**
+!*.gradle.kts
+!gradle.properties
+!gradlew*
+
+# Don't ignore the modules and its contents
+!ap
+!ap/src
+!ap/src/**
+!core
+!core/src
+!core/src/**
+!database
+!database/common
+!database/common/src
+!database/common/src/**
+!database/mongo
+!database/mongo/src
+!database/mongo/src/**
+!database/sql
+!database/sql/src
+!database/sql/src/**
