@@ -22,37 +22,20 @@
  * @author GeyserMC
  * @link https://github.com/GeyserMC/DatabaseUtils
  */
-package org.geysermc.databaseutils.processor.util;
+package org.geysermc.databaseutils;
 
-import com.google.auto.common.MoreTypes;
-import javax.lang.model.element.Name;
-import javax.lang.model.element.TypeElement;
-import javax.lang.model.type.TypeMirror;
-import javax.lang.model.util.Types;
+import java.util.concurrent.ExecutorService;
 
-public final class TypeUtils {
-    private TypeUtils() {}
+public abstract class Database {
+    protected ExecutorService service;
 
-    public static TypeElement toBoxedTypeElement(TypeMirror mirror, Types typeUtils) {
-        if (mirror.getKind().isPrimitive()) {
-            return typeUtils.boxedClass(MoreTypes.asPrimitiveType(mirror));
-        }
-        return MoreTypes.asTypeElement(mirror);
+    public void start(DatabaseConfig config, ExecutorService service) {
+        this.service = service;
     }
 
-    public static boolean isTypeOf(Class<?> clazz, TypeElement element) {
-        return isTypeOf(clazz, element.getQualifiedName());
-    }
+    public abstract void stop();
 
-    public static boolean isTypeOf(Class<?> clazz, Name canonicalName) {
-        return canonicalName.contentEquals(clazz.getCanonicalName());
-    }
-
-    public static String packageNameFor(Name className) {
-        return packageNameFor(className.toString());
-    }
-
-    public static String packageNameFor(String className) {
-        return className.substring(0, className.lastIndexOf('.'));
+    public ExecutorService executorService() {
+        return service;
     }
 }

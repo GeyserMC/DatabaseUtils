@@ -31,10 +31,14 @@ import java.util.concurrent.CompletableFuture;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
 import org.geysermc.databaseutils.processor.query.QueryInfo;
+import org.geysermc.databaseutils.processor.util.TypeUtils;
 
 public abstract class RepositoryGenerator {
     protected TypeSpec.Builder typeSpec;
     protected boolean hasAsync;
+    private String packageName;
+
+    protected abstract String upperCamelCaseDatabaseType();
 
     protected void onConstructorBuilder(MethodSpec.Builder builder) {}
 
@@ -42,13 +46,19 @@ public abstract class RepositoryGenerator {
 
     public abstract void addExistsBy(QueryInfo queryInfo, MethodSpec.Builder spec, boolean async);
 
-    public void init(String className, TypeElement superType) {
+    public void init(TypeElement superType) {
         if (this.typeSpec != null) {
             throw new IllegalStateException("Cannot reinitialize RepositoryGenerator");
         }
+        this.packageName = TypeUtils.packageNameFor(superType.getQualifiedName());
+        var className = superType.getSimpleName() + upperCamelCaseDatabaseType() + "Impl";
         this.typeSpec = TypeSpec.classBuilder(className)
                 .addSuperinterface(ParameterizedTypeName.get(superType.asType()))
-                .addModifiers(Modifier.FINAL);
+                .addModifiers(Modifier.PUBLIC, Modifier.FINAL);
+    }
+
+    public String packageName() {
+        return packageName;
     }
 
     public boolean hasAsync() {
@@ -59,6 +69,7 @@ public abstract class RepositoryGenerator {
         typeSpec.addField(databaseClass, "database", Modifier.PRIVATE, Modifier.FINAL);
 
         var constructor = MethodSpec.constructorBuilder()
+                .addModifiers(Modifier.PUBLIC)
                 .addParameter(databaseClass, "database")
                 .addStatement("this.database = database");
         onConstructorBuilder(constructor);

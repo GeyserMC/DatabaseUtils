@@ -22,37 +22,40 @@
  * @author GeyserMC
  * @link https://github.com/GeyserMC/DatabaseUtils
  */
-package org.geysermc.databaseutils.processor.util;
+package org.geysermc.databaseutils.sql;
 
-import com.google.auto.common.MoreTypes;
-import javax.lang.model.element.Name;
-import javax.lang.model.element.TypeElement;
-import javax.lang.model.type.TypeMirror;
-import javax.lang.model.util.Types;
+import com.zaxxer.hikari.HikariConfig;
+import com.zaxxer.hikari.HikariDataSource;
+import java.util.concurrent.ExecutorService;
+import org.geysermc.databaseutils.Database;
+import org.geysermc.databaseutils.DatabaseConfig;
 
-public final class TypeUtils {
-    private TypeUtils() {}
+public final class SqlDatabase extends Database {
+    private HikariDataSource dataSource;
 
-    public static TypeElement toBoxedTypeElement(TypeMirror mirror, Types typeUtils) {
-        if (mirror.getKind().isPrimitive()) {
-            return typeUtils.boxedClass(MoreTypes.asPrimitiveType(mirror));
-        }
-        return MoreTypes.asTypeElement(mirror);
+    @Override
+    public void start(DatabaseConfig config, ExecutorService service) {
+        super.start(config, service);
+        var hikariConfig = new HikariConfig();
+        hikariConfig.setJdbcUrl(config.uri());
+        hikariConfig.setUsername(config.username());
+        hikariConfig.setPassword(config.password());
+        hikariConfig.setPoolName(config.poolName());
+        hikariConfig.setMaximumPoolSize(config.connectionPoolSize());
+
+        dataSource = new HikariDataSource(hikariConfig);
     }
 
-    public static boolean isTypeOf(Class<?> clazz, TypeElement element) {
-        return isTypeOf(clazz, element.getQualifiedName());
+    @Override
+    public void stop() {
+        dataSource.close();
     }
 
-    public static boolean isTypeOf(Class<?> clazz, Name canonicalName) {
-        return canonicalName.contentEquals(clazz.getCanonicalName());
+    public SqlDialect dialect() {
+        return SqlDialect.H2; // todo
     }
 
-    public static String packageNameFor(Name className) {
-        return packageNameFor(className.toString());
-    }
-
-    public static String packageNameFor(String className) {
-        return className.substring(0, className.lastIndexOf('.'));
+    public HikariDataSource dataSource() {
+        return dataSource;
     }
 }

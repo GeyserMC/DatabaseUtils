@@ -22,37 +22,25 @@
  * @author GeyserMC
  * @link https://github.com/GeyserMC/DatabaseUtils
  */
-package org.geysermc.databaseutils.processor.util;
+package org.geysermc.databaseutils;
 
-import com.google.auto.common.MoreTypes;
-import javax.lang.model.element.Name;
-import javax.lang.model.element.TypeElement;
-import javax.lang.model.type.TypeMirror;
-import javax.lang.model.util.Types;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executors;
+import org.geysermc.databaseutils.data.BasicRepository;
+import org.junit.jupiter.api.Test;
 
-public final class TypeUtils {
-    private TypeUtils() {}
+final class SqlTest {
+    @Test
+    void hello() throws ExecutionException, InterruptedException {
+        var utils = DatabaseUtils.builder()
+                .config(new DatabaseConfig("jdbc:h2:./test", "sa", "", "hello", 2))
+                .executorService(Executors.newCachedThreadPool())
+                .build();
+        utils.start();
+        var repo = utils.repositoryFor(BasicRepository.class);
 
-    public static TypeElement toBoxedTypeElement(TypeMirror mirror, Types typeUtils) {
-        if (mirror.getKind().isPrimitive()) {
-            return typeUtils.boxedClass(MoreTypes.asPrimitiveType(mirror));
-        }
-        return MoreTypes.asTypeElement(mirror);
-    }
-
-    public static boolean isTypeOf(Class<?> clazz, TypeElement element) {
-        return isTypeOf(clazz, element.getQualifiedName());
-    }
-
-    public static boolean isTypeOf(Class<?> clazz, Name canonicalName) {
-        return canonicalName.contentEquals(clazz.getCanonicalName());
-    }
-
-    public static String packageNameFor(Name className) {
-        return packageNameFor(className.toString());
-    }
-
-    public static String packageNameFor(String className) {
-        return className.substring(0, className.lastIndexOf('.'));
+        var result = repo.findByAAndB(3, "").get();
+        System.out.println(result != null);
+        System.out.println(result);
     }
 }

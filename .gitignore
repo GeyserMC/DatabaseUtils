@@ -21,9 +21,9 @@
 !core/src
 !core/src/**
 !database
-!database/common
-!database/common/src
-!database/common/src/**
+!database/core
+!database/core/src
+!database/core/src/**
 !database/mongo
 !database/mongo/src
 !database/mongo/src/**

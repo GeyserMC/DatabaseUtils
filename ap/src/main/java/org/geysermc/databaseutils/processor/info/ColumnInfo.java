@@ -26,4 +26,4 @@ package org.geysermc.databaseutils.processor.info;
 
 import javax.lang.model.element.Name;
 
-public record ColumnInfo(Name name, CharSequence typeName) {}
+public record ColumnInfo(Name name, Name typeName) {}

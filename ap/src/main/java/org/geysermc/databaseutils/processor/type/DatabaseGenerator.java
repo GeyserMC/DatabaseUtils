@@ -26,9 +26,13 @@ package org.geysermc.databaseutils.processor.type;
 
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.CodeBlock;
+import com.squareup.javapoet.FieldSpec;
+import com.squareup.javapoet.MethodSpec;
 import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeSpec;
+import com.squareup.javapoet.WildcardTypeName;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.function.Function;
 import javax.lang.model.element.Modifier;
@@ -37,19 +41,28 @@ import org.geysermc.databaseutils.processor.info.EntityInfo;
 
 public abstract class DatabaseGenerator {
     protected TypeSpec.Builder spec;
-    protected boolean hasAsync;
 
     public void init(TypeSpec.Builder spec, boolean hasAsync) {
         if (this.spec != null) {
             throw new IllegalStateException("Cannot reinitialize RepositoryGenerator");
         }
         this.spec = spec;
-        this.hasAsync = hasAsync;
+        spec.addField(FieldSpec.builder(Boolean.TYPE, "HAS_ASYNC", Modifier.PRIVATE, Modifier.STATIC, Modifier.FINAL)
+                .initializer("$L", hasAsync)
+                .build());
     }
 
     public abstract Class<?> databaseClass();
 
-    public abstract void addEntities(List<EntityInfo> entities);
+    protected abstract void addEntities(Collection<EntityInfo> entities, MethodSpec.Builder builder);
+
+    public void addEntities(Collection<EntityInfo> entities) {
+        var builder = MethodSpec.methodBuilder("createEntities")
+                .addModifiers(Modifier.STATIC)
+                .addParameter(databaseClass(), "database");
+        addEntities(entities, builder);
+        spec.addMethod(builder.build());
+    }
 
     public void addRepositories(List<String> repositoriesClassName) {
         var builder = CodeBlock.builder().addStatement("REPOSITORIES = new $T<>()", ArrayList.class);
@@ -58,10 +71,15 @@ public abstract class DatabaseGenerator {
         }
         spec.addStaticBlock(builder.build());
 
+        // List<Function<dbClass, IRepository<?>>>
         spec.addField(
                 ParameterizedTypeName.get(
                         ClassName.get(List.class),
-                        ParameterizedTypeName.get(Function.class, databaseClass(), IRepository.class)),
+                        ParameterizedTypeName.get(
+                                ClassName.get(Function.class),
+                                ClassName.get(databaseClass()),
+                                ParameterizedTypeName.get(
+                                        ClassName.get(IRepository.class), WildcardTypeName.subtypeOf(Object.class)))),
                 "REPOSITORIES",
                 Modifier.PRIVATE,
                 Modifier.STATIC,

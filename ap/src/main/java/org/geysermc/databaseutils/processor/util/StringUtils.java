@@ -22,24 +22,18 @@
  * @author GeyserMC
  * @link https://github.com/GeyserMC/DatabaseUtils
  */
-package org.geysermc.databaseutils;
+package org.geysermc.databaseutils.processor.util;
 
-import java.util.concurrent.ExecutorService;
+import java.util.Locale;
 
-public abstract class Database {
-    protected ExecutorService service;
+public class StringUtils {
+    private StringUtils() {}
 
-    public void init(DatabaseConfig config, ExecutorService service) {
-        this.service = service;
+    public static String capitalize(String string) {
+        return string.substring(0, 1).toUpperCase(Locale.ROOT) + string.substring(1);
     }
 
-    public abstract void stop();
-
-    protected void createEntities() {
-        // todo call method that creates the entities (tables)
-    }
-
-    public ExecutorService executorService() {
-        return service;
+    public static String uncapitalize(String string) {
+        return string.substring(0, 1).toLowerCase(Locale.ROOT) + string.substring(1);
     }
 }

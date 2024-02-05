@@ -34,7 +34,6 @@ import org.junit.runner.RunWith;
 class RepositoryImplementationGenerationTest {
     @Test
     void testBasicCompilation() {
-        // todo also test the **DatabaseGenerated files
-        testCompilation("test/BasicRepository");
+        testCompilation("test/basic/", "BasicRepository");
     }
 }

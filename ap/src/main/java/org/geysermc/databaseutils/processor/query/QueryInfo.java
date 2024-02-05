@@ -33,4 +33,13 @@ public record QueryInfo(
         CharSequence entityType,
         List<ColumnInfo> columns,
         List<QuerySection> sections,
-        List<? extends VariableElement> parameters) {}
+        List<? extends VariableElement> parameters) {
+    public ColumnInfo columnFor(String columnName) {
+        for (ColumnInfo column : columns) {
+            if (column.name().contentEquals(columnName)) {
+                return column;
+            }
+        }
+        return null;
+    }
+}

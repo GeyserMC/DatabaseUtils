@@ -24,7 +24,6 @@
  */
 package org.geysermc.databaseutils;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Supplier;
 import org.geysermc.databaseutils.sql.SqlDatabase;
@@ -34,13 +33,12 @@ final class DatabaseRegistry {
     private static final List<Supplier<Database>> TYPES = List.of(SqlDatabase::new);
     private static final List<DatabaseTypePresent> TYPE_PRESENT = List.of(new SqlDatabasePresent());
 
-    public static List<Database> databases() {
-        var databases = new ArrayList<Database>();
+    public static Database firstPresentDatabase() {
         for (int i = 0; i < TYPE_PRESENT.size(); i++) {
             if (TYPE_PRESENT.get(i).isPresent()) {
-                databases.add(TYPES.get(i).get());
+                return TYPES.get(i).get();
             }
         }
-        return databases;
+        return null;
     }
 }

@@ -24,4 +24,64 @@
  */
 package org.geysermc.databaseutils;
 
-public class DatabaseLoader {}
+import java.lang.reflect.AccessibleObject;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.function.Function;
+import org.checkerframework.checker.nullness.qual.NonNull;
+
+final class DatabaseLoader {
+    @SuppressWarnings({"unchecked"})
+    @NonNull StartResult startDatabase(DatabaseConfig config, ExecutorService service) {
+        var database = DatabaseRegistry.firstPresentDatabase();
+        if (database == null) {
+            throw new IllegalStateException("Couldn't find any present database");
+        }
+
+        Class<?> databaseImplClass;
+        boolean hasAsync;
+        List<Function<Database, IRepository<?>>> repositoryCreators;
+        Method createEntitiesMethod;
+        try {
+            databaseImplClass = Class.forName(database.getClass().getName() + "Generated");
+
+            hasAsync = access(databaseImplClass.getDeclaredField("HAS_ASYNC")).getBoolean(null);
+            repositoryCreators = (List<Function<Database, IRepository<?>>>)
+                    access(databaseImplClass.getDeclaredField("REPOSITORIES")).get(null);
+            createEntitiesMethod = access(databaseImplClass.getDeclaredMethod("createEntities", database.getClass()));
+        } catch (ClassNotFoundException exception) {
+            throw new IllegalStateException("Could not find database implementation!", exception);
+        } catch (NoSuchMethodException | NoSuchFieldException | IllegalAccessException exception) {
+            throw new RuntimeException("Something went wrong with the generated database implementation", exception);
+        }
+
+        if (hasAsync && service == null) {
+            throw new IllegalStateException("Database has async methods but no ExecutorService was provided!");
+        }
+
+        database.start(config, service);
+
+        try {
+            createEntitiesMethod.invoke(null, database);
+        } catch (IllegalAccessException | InvocationTargetException exception) {
+            throw new RuntimeException("Something went wrong with creating entities", exception);
+        }
+
+        var repositories = new ArrayList<IRepository<?>>();
+        for (var repositoryCreator : repositoryCreators) {
+            repositories.add(repositoryCreator.apply(database));
+        }
+
+        return new StartResult(database, repositories);
+    }
+
+    private <T extends AccessibleObject> T access(T member) {
+        member.setAccessible(true);
+        return member;
+    }
+
+    record StartResult(Database database, List<IRepository<?>> repositories) {}
+}

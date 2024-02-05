@@ -24,6 +24,9 @@
  */
 package org.geysermc.databaseutils.processor.type;
 
+import static org.geysermc.databaseutils.processor.type.sql.JdbcTypeMappingRegistry.jdbcGetFor;
+import static org.geysermc.databaseutils.processor.type.sql.JdbcTypeMappingRegistry.jdbcSetFor;
+
 import ca.krasnay.sqlbuilder.Predicate;
 import ca.krasnay.sqlbuilder.Predicates;
 import com.squareup.javapoet.ClassName;
@@ -36,7 +39,6 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletionException;
-import java.util.function.Supplier;
 import javax.lang.model.element.Modifier;
 import org.geysermc.databaseutils.processor.info.ColumnInfo;
 import org.geysermc.databaseutils.processor.query.QueryInfo;
@@ -49,6 +51,11 @@ import org.geysermc.databaseutils.processor.util.InvalidRepositoryException;
 
 public class SqlRepositoryGenerator extends RepositoryGenerator {
     @Override
+    protected String upperCamelCaseDatabaseType() {
+        return "Sql";
+    }
+
+    @Override
     protected void onConstructorBuilder(MethodSpec.Builder builder) {
         typeSpec.addField(HikariDataSource.class, "dataSource", Modifier.PRIVATE, Modifier.FINAL);
         builder.addStatement("this.dataSource = database.dataSource()");
@@ -56,54 +63,43 @@ public class SqlRepositoryGenerator extends RepositoryGenerator {
 
     @Override
     public void addFindBy(QueryInfo queryInfo, MethodSpec.Builder spec, boolean async) {
-        addActionedData(
-                queryInfo,
-                spec,
-                async,
-                () -> {
-                    return new CustomSelectCreator().where(createPredicateFor(queryInfo));
-                },
-                () -> {
-                    spec.beginControlFlow("if (!result.next())");
-                    spec.addStatement("return null");
-                    spec.endControlFlow();
+        var queryCreator = new CustomSelectCreator().where(createPredicateFor(queryInfo));
+        addActionedData(queryInfo, spec, async, queryCreator, () -> {
+            spec.beginControlFlow("if (!result.next())");
+            spec.addStatement("return null");
+            spec.endControlFlow();
 
-                    var arguments = new ArrayList<String>();
-                    for (ColumnInfo column : queryInfo.columns()) {
-                        var columnType = ClassName.bestGuess(column.typeName().toString());
-                        spec.addStatement(
-                                "$T _$L = ($T) result.getObject($S)",
-                                columnType,
-                                column.name(),
-                                columnType,
-                                column.name());
-                        arguments.add("_" + column.name());
-                    }
-                    spec.addStatement(
-                            "return new $T($L)",
-                            ClassName.bestGuess(queryInfo.entityType().toString()),
-                            String.join(", ", arguments));
-                });
+            var arguments = new ArrayList<String>();
+            for (ColumnInfo column : queryInfo.columns()) {
+                var columnType = ClassName.bestGuess(column.typeName().toString());
+                spec.addStatement(
+                        jdbcGetFor(column.typeName(), "$T _$L = result.%s(%s)"),
+                        columnType,
+                        column.name(),
+                        column.name());
+                arguments.add("_" + column.name());
+            }
+            spec.addStatement(
+                    "return new $T($L)",
+                    ClassName.bestGuess(queryInfo.entityType().toString()),
+                    String.join(", ", arguments));
+        });
     }
 
     @Override
     public void addExistsBy(QueryInfo queryInfo, MethodSpec.Builder spec, boolean async) {
-        addActionedData(
-                queryInfo,
-                spec,
-                async,
-                () -> new CustomSelectCreator().column("1").where(createPredicateFor(queryInfo)),
-                () -> spec.addStatement("return result.next()"));
+        var queryCreator = new CustomSelectCreator().column("1").where(createPredicateFor(queryInfo));
+        addActionedData(queryInfo, spec, async, queryCreator, () -> spec.addStatement("return result.next()"));
     }
 
     private void addActionedData(
             QueryInfo queryInfo,
             MethodSpec.Builder spec,
             boolean async,
-            Supplier<CustomSelectCreator> queryCreator,
+            CustomSelectCreator queryCreator,
             Runnable content) {
         wrapInCompletableFuture(spec, async, () -> {
-            var specResult = queryCreator.get().from(queryInfo.tableName()).toSpecResult();
+            var specResult = queryCreator.from(queryInfo.tableName()).toSpecResult();
             var query = specResult.query();
 
             spec.beginControlFlow("try ($T connection = dataSource.getConnection())", Connection.class);
@@ -112,7 +108,9 @@ public class SqlRepositoryGenerator extends RepositoryGenerator {
 
             var parameterNames = specResult.parameterNames();
             for (int i = 0; i < parameterNames.size(); i++) {
-                spec.addStatement("statement.setObject($L, $L)", i, parameterNames.get(i));
+                var name = parameterNames.get(i);
+                var columnType = queryInfo.columnFor(name).typeName();
+                spec.addStatement(jdbcSetFor(columnType, "statement.%s($L, $L)"), i + 1, parameterNames.get(i));
             }
 
             spec.beginControlFlow("try ($T result = statement.executeQuery())", ResultSet.class);

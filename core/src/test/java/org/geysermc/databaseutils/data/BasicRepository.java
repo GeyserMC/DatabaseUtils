@@ -22,37 +22,15 @@
  * @author GeyserMC
  * @link https://github.com/GeyserMC/DatabaseUtils
  */
-package org.geysermc.databaseutils.processor.util;
+package org.geysermc.databaseutils.data;
 
-import com.google.auto.common.MoreTypes;
-import javax.lang.model.element.Name;
-import javax.lang.model.element.TypeElement;
-import javax.lang.model.type.TypeMirror;
-import javax.lang.model.util.Types;
+import java.util.concurrent.CompletableFuture;
+import org.geysermc.databaseutils.IRepository;
+import org.geysermc.databaseutils.meta.Repository;
 
-public final class TypeUtils {
-    private TypeUtils() {}
+@Repository
+public interface BasicRepository extends IRepository<TestEntity> {
+    CompletableFuture<TestEntity> findByAAndB(int a, String b);
 
-    public static TypeElement toBoxedTypeElement(TypeMirror mirror, Types typeUtils) {
-        if (mirror.getKind().isPrimitive()) {
-            return typeUtils.boxedClass(MoreTypes.asPrimitiveType(mirror));
-        }
-        return MoreTypes.asTypeElement(mirror);
-    }
-
-    public static boolean isTypeOf(Class<?> clazz, TypeElement element) {
-        return isTypeOf(clazz, element.getQualifiedName());
-    }
-
-    public static boolean isTypeOf(Class<?> clazz, Name canonicalName) {
-        return canonicalName.contentEquals(clazz.getCanonicalName());
-    }
-
-    public static String packageNameFor(Name className) {
-        return packageNameFor(className.toString());
-    }
-
-    public static String packageNameFor(String className) {
-        return className.substring(0, className.lastIndexOf('.'));
-    }
+    CompletableFuture<Boolean> existsByAOrB(int a, String b);
 }

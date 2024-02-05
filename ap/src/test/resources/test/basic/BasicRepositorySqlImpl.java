@@ -1,4 +1,4 @@
-package org.geysermc.databaseutils.generated;
+package test.basic;
 
 import com.zaxxer.hikari.HikariDataSource;
 import java.lang.Boolean;
@@ -12,15 +12,13 @@ import java.sql.SQLException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import org.geysermc.databaseutils.sql.SqlDatabase;
-import test.BasicRepository;
-import test.TestEntity;
 
-final class BasicRepositoryImpl implements BasicRepository {
+public final class BasicRepositorySqlImpl implements BasicRepository {
     private final SqlDatabase database;
 
     private final HikariDataSource dataSource;
 
-    BasicRepositoryImpl(SqlDatabase database) {
+    public BasicRepositorySqlImpl(SqlDatabase database) {
         this.database = database;
         this.dataSource = database.dataSource();
     }
@@ -30,15 +28,15 @@ final class BasicRepositoryImpl implements BasicRepository {
         return CompletableFuture.supplyAsync(() -> {
             try (Connection connection = dataSource.getConnection()) {
                 try (PreparedStatement statement = connection.prepareStatement("select * from hello where (a = ? and b = ?)")) {
-                    statement.setObject(0, a);
-                    statement.setObject(1, b);
+                    statement.setInt(1, a);
+                    statement.setString(2, b);
                     try (ResultSet result = statement.executeQuery()) {
                         if (!result.next()) {
                             return null;
                         }
-                        Integer _a = (Integer) result.getObject("a");
-                        String _b = (String) result.getObject("b");
-                        String _c = (String) result.getObject("c");
+                        Integer _a = result.getInt("a");
+                        String _b = result.getString("b");
+                        String _c = result.getString("c");
                         return new TestEntity(_a, _b, _c);
                     }
                 }
@@ -53,8 +51,8 @@ final class BasicRepositoryImpl implements BasicRepository {
         return CompletableFuture.supplyAsync(() -> {
             try (Connection connection = dataSource.getConnection()) {
                 try (PreparedStatement statement = connection.prepareStatement("select 1 from hello where (a = ? or b = ?)")) {
-                    statement.setObject(0, a);
-                    statement.setObject(1, b);
+                    statement.setInt(1, a);
+                    statement.setString(2, b);
                     try (ResultSet result = statement.executeQuery()) {
                         return result.next();
                     }

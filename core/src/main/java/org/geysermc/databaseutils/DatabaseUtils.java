@@ -39,9 +39,15 @@ public class DatabaseUtils {
         this.executorService = executorService;
     }
 
+    public static Builder builder() {
+        return new Builder();
+    }
+
     public List<IRepository<?>> start() {
-        new DatabaseLoader();
-        return null;
+        var result = new DatabaseLoader().startDatabase(config, executorService);
+        this.database = result.database();
+        this.repositories = result.repositories();
+        return result.repositories();
     }
 
     public void stop() {
@@ -49,6 +55,19 @@ public class DatabaseUtils {
             return;
         }
         database.stop();
+    }
+
+    public <T extends IRepository<?>> T repositoryFor(Class<T> repository) {
+        if (repositories == null) {
+            throw new IllegalStateException("Please call start before calling this method!");
+        }
+        for (IRepository<?> iRepository : repositories) {
+            if (repository.isInstance(iRepository)) {
+                //noinspection unchecked
+                return (T) iRepository;
+            }
+        }
+        return null;
     }
 
     public static class Builder {
@@ -59,6 +78,8 @@ public class DatabaseUtils {
         private String poolName;
         private int connectionPoolSize;
         private ExecutorService executorService;
+
+        private Builder() {}
 
         public DatabaseConfig config() {
             return config;

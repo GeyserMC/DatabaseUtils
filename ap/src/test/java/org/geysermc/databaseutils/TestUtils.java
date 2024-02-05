@@ -26,33 +26,51 @@ package org.geysermc.databaseutils;
 
 import static com.google.testing.compile.CompilationSubject.assertThat;
 import static com.google.testing.compile.Compiler.javac;
+import static com.google.testing.compile.JavaFileObjectSubject.assertThat;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.google.testing.compile.Compilation;
 import com.google.testing.compile.JavaFileObjects;
+import java.util.List;
 import org.geysermc.databaseutils.processor.RepositoryProcessor;
+import org.geysermc.databaseutils.sql.SqlDatabase;
 
 final class TestUtils {
-    private static final String PACKAGE = "org.geysermc.databaseutils.generated.";
+    private static final List<Class<?>> DATABASE_TYPES = List.of(SqlDatabase.class);
 
     private TestUtils() {}
 
     /**
      * Tests whether the compilation is successful and that the generated impl matches the expected impl.
      */
-    static Compilation testCompilation(final String sourceResourceName) {
+    static void testCompilation(final String folder, final String sourceResourceSimpleName) {
+        final String sourceResourceName = folder + sourceResourceSimpleName;
+
         final Compilation compilation = javac().withProcessors(new RepositoryProcessor())
                 .compile(JavaFileObjects.forResource(sourceResourceName + ".java"));
 
-        final String targetResourceName = sourceResourceName + "Impl";
-
-        final String targetSourceSimpleName = targetResourceName.substring(targetResourceName.lastIndexOf("/") + 1);
-        final String targetSourceName = PACKAGE + targetSourceSimpleName;
-
         assertThat(compilation).succeeded();
-        assertThat(compilation)
-                .generatedSourceFile(targetSourceName)
-                .hasSourceEquivalentTo(JavaFileObjects.forResource(targetResourceName + ".java"));
 
-        return compilation;
+        // every db type has a db class and a repository class
+        assertEquals(
+                DATABASE_TYPES.size() * 2, compilation.generatedSourceFiles().size(), "Generated source file count");
+
+        for (Class<?> databaseTypeClass : DATABASE_TYPES) {
+            var databaseType = databaseTypeClass.getSimpleName().replace("Database", "");
+            // repo
+            var repoImplName = sourceResourceName + databaseType + "Impl";
+            var generatedRepo = compilation.generatedSourceFile(repoImplName);
+            assertTrue(generatedRepo.isPresent(), "Expected " + repoImplName + " to be generated");
+            assertThat(JavaFileObjects.forResource(repoImplName + ".java")).hasSourceEquivalentTo(generatedRepo.get());
+
+            // db
+            var expectedDatabaseImpl = folder + databaseTypeClass.getSimpleName() + "Generated";
+            var actualDatabaseImpl = compilation.generatedSourceFile(
+                    databaseTypeClass.getCanonicalName().replace('.', '/') + "Generated");
+            assertTrue(actualDatabaseImpl.isPresent(), "Expected " + expectedDatabaseImpl + " to be generated");
+            assertThat(JavaFileObjects.forResource(expectedDatabaseImpl + ".java"))
+                    .hasSourceEquivalentTo(actualDatabaseImpl.get());
+        }
     }
 }

@@ -1,4 +1,4 @@
-package test;
+package test.basic;
 
 import java.util.concurrent.CompletableFuture;
 import org.geysermc.databaseutils.IRepository;

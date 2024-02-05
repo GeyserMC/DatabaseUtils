@@ -1,4 +1,4 @@
-package test;
+package test.basic;
 
 import org.geysermc.databaseutils.meta.Entity;
 import org.geysermc.databaseutils.meta.Index;

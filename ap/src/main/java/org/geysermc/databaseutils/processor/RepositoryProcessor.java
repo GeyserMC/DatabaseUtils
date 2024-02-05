@@ -103,7 +103,6 @@ public final class RepositoryProcessor extends AbstractProcessor {
                 var result = processRepository((TypeElement) element);
                 // repository -> database to database -> repository
                 for (int i = 0; i < result.size(); i++) {
-                    // todo convert this so that finish can be finish(databaseClass) because we need the db type
                     results.get(i).add(result.get(i));
                 }
             } catch (InvalidRepositoryException exception) {
@@ -124,7 +123,7 @@ public final class RepositoryProcessor extends AbstractProcessor {
             return false;
         }
 
-        List<TypeSpec> generatedTypes = new ArrayList<>();
+        List<GeneratedType> generatedTypes = new ArrayList<>();
 
         // generate databases
         var databases = RegisteredGenerators.databaseGenerators();
@@ -137,15 +136,16 @@ public final class RepositoryProcessor extends AbstractProcessor {
                 hasAsync |= result.hasAsync();
 
                 var build = result.finish(generator.databaseClass()).build();
-                generatedTypes.add(build);
-                repositoryClasses.add(build.name);
+                generatedTypes.add(new GeneratedType(result.packageName(), build));
+                repositoryClasses.add(result.packageName() + "." + build.name);
             }
 
             var spec = TypeSpec.classBuilder(generator.databaseClass().getSimpleName() + "Generated");
             generator.init(spec, hasAsync);
+            generator.addEntities(entityManager.processedEntities());
             generator.addRepositories(repositoryClasses);
 
-            generatedTypes.add(spec.build());
+            generatedTypes.add(new GeneratedType(generator.databaseClass().getPackageName(), spec.build()));
         }
 
         writeGeneratedTypes(generatedTypes);
@@ -153,18 +153,17 @@ public final class RepositoryProcessor extends AbstractProcessor {
         return false;
     }
 
+    record GeneratedType(String packageName, TypeSpec database) {}
+
     @Override
     public SourceVersion getSupportedSourceVersion() {
         return SourceVersion.latestSupported();
     }
 
-    void writeGeneratedTypes(List<TypeSpec> specs) {
-        for (TypeSpec spec : specs) {
-            System.out.println("writing: " + spec);
+    void writeGeneratedTypes(List<GeneratedType> generatedTypes) {
+        for (var entry : generatedTypes) {
             try {
-                JavaFile.builder("org.geysermc.databaseutils.generated", spec)
-                        .build()
-                        .writeTo(filer);
+                JavaFile.builder(entry.packageName(), entry.database()).build().writeTo(filer);
             } catch (IOException exception) {
                 throw new RuntimeException(exception);
             }
@@ -187,7 +186,7 @@ public final class RepositoryProcessor extends AbstractProcessor {
 
         var generators = RegisteredGenerators.repositoryGenerators();
         for (var generator : generators) {
-            generator.init(repository.getSimpleName() + "Impl", repository);
+            generator.init(repository);
         }
 
         for (Element enclosedElement : repository.getEnclosedElements()) {
