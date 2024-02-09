@@ -46,6 +46,8 @@ public abstract class RepositoryGenerator {
 
     public abstract void addExistsBy(QueryInfo queryInfo, MethodSpec.Builder spec, boolean async);
 
+    public abstract void addSimple(String actionType, QueryInfo queryInfo, MethodSpec.Builder spec, boolean async);
+
     public void init(TypeElement superType) {
         if (this.typeSpec != null) {
             throw new IllegalStateException("Cannot reinitialize RepositoryGenerator");

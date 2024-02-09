@@ -22,6 +22,6 @@
  * @author GeyserMC
  * @link https://github.com/GeyserMC/DatabaseUtils
  */
-package org.geysermc.databaseutils.processor.query;
+package org.geysermc.databaseutils.processor.query.section;
 
 public record VariableSection(String name) implements QuerySection {}

@@ -51,10 +51,8 @@ import javax.lang.model.util.Types;
 import javax.tools.Diagnostic;
 import org.geysermc.databaseutils.IRepository;
 import org.geysermc.databaseutils.meta.Repository;
-import org.geysermc.databaseutils.processor.info.EntityInfo;
+import org.geysermc.databaseutils.processor.action.ActionRegistry;
 import org.geysermc.databaseutils.processor.query.QueryInfo;
-import org.geysermc.databaseutils.processor.query.QuerySection;
-import org.geysermc.databaseutils.processor.query.VariableSection;
 import org.geysermc.databaseutils.processor.type.RepositoryGenerator;
 import org.geysermc.databaseutils.processor.util.InvalidRepositoryException;
 import org.geysermc.databaseutils.processor.util.TypeUtils;
@@ -160,7 +158,7 @@ public final class RepositoryProcessor extends AbstractProcessor {
         return SourceVersion.latestSupported();
     }
 
-    void writeGeneratedTypes(List<GeneratedType> generatedTypes) {
+    private void writeGeneratedTypes(List<GeneratedType> generatedTypes) {
         for (var entry : generatedTypes) {
             try {
                 JavaFile.builder(entry.packageName(), entry.database()).build().writeTo(filer);
@@ -170,7 +168,7 @@ public final class RepositoryProcessor extends AbstractProcessor {
         }
     }
 
-    List<RepositoryGenerator> processRepository(TypeElement repository) {
+    private List<RepositoryGenerator> processRepository(TypeElement repository) {
         TypeMirror entityType = null;
         for (TypeMirror mirror : repository.getInterfaces()) {
             if (TypeUtils.isTypeOf(IRepository.class, MoreTypes.asTypeElement(mirror))) {
@@ -213,120 +211,24 @@ public final class RepositoryProcessor extends AbstractProcessor {
 
             var name = element.getSimpleName().toString();
 
-            if (name.startsWith("findBy")) {
-                if (!returnType.getQualifiedName().contentEquals(entity.className())) {
-                    throw new InvalidRepositoryException(
-                            "Expected %s as return type for %s, got %s",
-                            entity.className(), element.getSimpleName(), returnType);
-                }
-
-                var actions = findActionsFor("findBy", name.substring("findBy".length()), element, entity);
-                var queryInfo = new QueryInfo(
-                        entity.name(), entity.className(), entity.columns(), actions, element.getParameters());
-
-                for (RepositoryGenerator generator : generators) {
-                    generator.addFindBy(queryInfo, MethodSpec.overriding(element), async);
-                }
-            } else if (name.startsWith("existsBy")) {
-                if (!TypeUtils.isTypeOf(Boolean.class, returnType)) {
-                    throw new InvalidRepositoryException(
-                            "Expected Boolean as return type for %s, got %s", element.getSimpleName(), returnType);
-                }
-
-                var actions = findActionsFor("existsBy", name.substring("existsBy".length()), element, entity);
-                var queryInfo = new QueryInfo(
-                        entity.name(), entity.className(), entity.columns(), actions, element.getParameters());
-
-                for (RepositoryGenerator generator : generators) {
-                    generator.addExistsBy(queryInfo, MethodSpec.overriding(element), async);
-                }
-            } else {
+            var action = ActionRegistry.actionMatching(name);
+            if (action == null) {
                 throw new InvalidRepositoryException("No available actions for %s", name);
+            }
+            var sections = action.querySectionsFor(name, element, returnType, entity, typeUtils);
+
+            var queryInfo = new QueryInfo(
+                    entity.name(), entity.className(), entity.columns(), sections, element.getParameters());
+
+            for (RepositoryGenerator generator : generators) {
+                action.addTo(generator, queryInfo, MethodSpec.overriding(element), async);
             }
         }
 
         return generators;
     }
 
-    List<QuerySection> findActionsFor(String actionName, String name, ExecutableElement element, EntityInfo info) {
-        if (name.isEmpty()) {
-            throw new InvalidRepositoryException("Cannot %s nothing!", actionName);
-        }
-
-        var sections = new ArrayList<QuerySection>();
-        var parameterCount = 0;
-        StringBuilder currentSections = new StringBuilder();
-        StringBuilder currentSection = new StringBuilder();
-
-        for (int i = 0; i < name.length(); i++) {
-            char current = name.charAt(i);
-            if (Character.isUpperCase(current)) {
-                // this can be a new section!
-                var selector = RegisteredActions.selectorFor(currentSection.toString());
-                if (selector != null) {
-                    var variableName = currentSections.toString();
-                    var column = info.columnFor(variableName);
-                    if (column == null) {
-                        throw new InvalidRepositoryException(
-                                "Cannot find column '%s' in %s", variableName, info.className());
-                    }
-                    var parameter = element.getParameters().get(parameterCount++);
-                    var parameterType = TypeUtils.toBoxedTypeElement(parameter.asType(), typeUtils)
-                            .getQualifiedName();
-                    if (!parameterType.contentEquals(column.typeName())) {
-                        throw new InvalidRepositoryException("Column '%s' type %s doesn't match parameter type %s");
-                    }
-
-                    sections.add(new VariableSection(variableName));
-                    sections.add(selector);
-                    currentSections = new StringBuilder();
-                } else {
-                    currentSections.append(currentSection);
-                }
-                currentSection = new StringBuilder();
-
-                // UpperCamelCase -> camelCase
-                if (currentSections.isEmpty()) {
-                    current = Character.toLowerCase(current);
-                }
-            }
-            currentSection.append(current);
-        }
-
-        // cannot have a selector as the last action
-        if (currentSection.isEmpty() && currentSections.isEmpty()) {
-            throw new InvalidRepositoryException("Cannot end a %s with a selector", actionName);
-        }
-
-        // assume everything remaining is a variable
-        currentSections.append(currentSection);
-        var variableName = currentSections.toString();
-        var column = info.columnFor(variableName);
-        if (column == null) {
-            throw new InvalidRepositoryException("Cannot find column '%s' in %s", variableName, info.className());
-        }
-        var parameter = element.getParameters().get(parameterCount++);
-        var parameterType =
-                TypeUtils.toBoxedTypeElement(parameter.asType(), typeUtils).getQualifiedName();
-        if (!parameterType.contentEquals(column.typeName())) {
-            throw new InvalidRepositoryException("Column '%s' type %s doesn't match parameter type %s");
-        }
-        sections.add(new VariableSection(variableName));
-
-        if (element.getParameters().size() != parameterCount) {
-            throw new InvalidRepositoryException(
-                    "Expected %s parameters for %s, got %s",
-                    parameterCount,
-                    element.getSimpleName(),
-                    element.getParameters().size());
-        }
-
-        return sections;
-    }
-
-    void error(final String message, final Object... arguments) {
+    private void error(final String message, final Object... arguments) {
         this.messager.printMessage(Diagnostic.Kind.ERROR, String.format(Locale.ROOT, message, arguments));
     }
-
-    record RepositoryResult(TypeSpec.Builder generatedRepository, boolean hasAsync) {}
 }

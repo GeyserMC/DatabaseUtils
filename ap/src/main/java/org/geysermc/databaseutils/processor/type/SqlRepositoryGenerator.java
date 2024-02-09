@@ -42,10 +42,10 @@ import java.util.concurrent.CompletionException;
 import javax.lang.model.element.Modifier;
 import org.geysermc.databaseutils.processor.info.ColumnInfo;
 import org.geysermc.databaseutils.processor.query.QueryInfo;
-import org.geysermc.databaseutils.processor.query.QuerySection;
-import org.geysermc.databaseutils.processor.query.VariableSection;
-import org.geysermc.databaseutils.processor.query.selector.AndSelector;
-import org.geysermc.databaseutils.processor.query.selector.OrSelector;
+import org.geysermc.databaseutils.processor.query.section.QuerySection;
+import org.geysermc.databaseutils.processor.query.section.VariableSection;
+import org.geysermc.databaseutils.processor.query.section.selector.AndSelector;
+import org.geysermc.databaseutils.processor.query.section.selector.OrSelector;
 import org.geysermc.databaseutils.processor.type.sql.CustomSelectCreator;
 import org.geysermc.databaseutils.processor.util.InvalidRepositoryException;
 
@@ -90,6 +90,11 @@ public class SqlRepositoryGenerator extends RepositoryGenerator {
     public void addExistsBy(QueryInfo queryInfo, MethodSpec.Builder spec, boolean async) {
         var queryCreator = new CustomSelectCreator().column("1").where(createPredicateFor(queryInfo));
         addActionedData(queryInfo, spec, async, queryCreator, () -> spec.addStatement("return result.next()"));
+    }
+
+    @Override
+    public void addSimple(String actionType, QueryInfo queryInfo, MethodSpec.Builder spec, boolean async) {
+
     }
 
     private void addActionedData(

@@ -27,6 +27,7 @@ package org.geysermc.databaseutils.processor.query;
 import java.util.List;
 import javax.lang.model.element.VariableElement;
 import org.geysermc.databaseutils.processor.info.ColumnInfo;
+import org.geysermc.databaseutils.processor.query.section.QuerySection;
 
 public record QueryInfo(
         String tableName,

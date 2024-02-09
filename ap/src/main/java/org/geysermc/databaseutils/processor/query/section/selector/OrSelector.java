@@ -22,20 +22,12 @@
  * @author GeyserMC
  * @link https://github.com/GeyserMC/DatabaseUtils
  */
-package org.geysermc.databaseutils.processor;
+package org.geysermc.databaseutils.processor.query.section.selector;
 
-import java.util.Map;
-import org.geysermc.databaseutils.processor.query.QuerySection;
-import org.geysermc.databaseutils.processor.query.selector.AndSelector;
-import org.geysermc.databaseutils.processor.query.selector.OrSelector;
+import org.geysermc.databaseutils.processor.query.section.QuerySection;
 
-final class RegisteredActions {
-    private static final Map<String, QuerySection> SELECTORS =
-            Map.of("And", AndSelector.INSTANCE, "Or", OrSelector.INSTANCE);
+public final class OrSelector implements QuerySection {
+    public static final OrSelector INSTANCE = new OrSelector();
 
-    private RegisteredActions() {}
-
-    public static QuerySection selectorFor(String name) {
-        return SELECTORS.get(name);
-    }
+    private OrSelector() {}
 }

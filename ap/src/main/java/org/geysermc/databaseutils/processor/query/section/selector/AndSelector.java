@@ -22,9 +22,9 @@
  * @author GeyserMC
  * @link https://github.com/GeyserMC/DatabaseUtils
  */
-package org.geysermc.databaseutils.processor.query.selector;
+package org.geysermc.databaseutils.processor.query.section.selector;
 
-import org.geysermc.databaseutils.processor.query.QuerySection;
+import org.geysermc.databaseutils.processor.query.section.QuerySection;
 
 public final class AndSelector implements QuerySection {
     public static final AndSelector INSTANCE = new AndSelector();

@@ -22,12 +22,6 @@
  * @author GeyserMC
  * @link https://github.com/GeyserMC/DatabaseUtils
  */
-package org.geysermc.databaseutils.processor.query.selector;
+package org.geysermc.databaseutils.processor.query.section;
 
-import org.geysermc.databaseutils.processor.query.QuerySection;
-
-public final class OrSelector implements QuerySection {
-    public static final OrSelector INSTANCE = new OrSelector();
-
-    private OrSelector() {}
-}
+public interface QuerySection {}

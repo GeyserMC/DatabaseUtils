@@ -63,8 +63,7 @@ public class DatabaseUtils {
         }
         for (IRepository<?> iRepository : repositories) {
             if (repository.isInstance(iRepository)) {
-                //noinspection unchecked
-                return (T) iRepository;
+                return repository.cast(iRepository);
             }
         }
         return null;
