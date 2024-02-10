@@ -27,6 +27,7 @@ package org.geysermc.databaseutils;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import org.geysermc.databaseutils.data.BasicRepository;
+import org.geysermc.databaseutils.data.TestEntity;
 import org.junit.jupiter.api.Test;
 
 final class SqlTest {
@@ -40,7 +41,22 @@ final class SqlTest {
         var repo = utils.repositoryFor(BasicRepository.class);
 
         var result = repo.findByAAndB(3, "").get();
-        System.out.println(result != null);
+        System.out.println(result);
+
+        repo.update(new TestEntity(result.a(), result.b(), result.c() + "h")).get();
+        var original = result;
+
+        result = repo.findByAAndB(3, "").get();
+        System.out.println(result);
+
+        repo.delete(result).get();
+
+        result = repo.findByAAndB(3, "").get();
+        System.out.println(result);
+
+        repo.insert(original).get();
+
+        result = repo.findByAAndB(3, "").get();
         System.out.println(result);
     }
 }

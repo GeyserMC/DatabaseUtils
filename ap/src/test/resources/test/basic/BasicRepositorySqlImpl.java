@@ -81,4 +81,22 @@ public final class BasicRepositorySqlImpl implements BasicRepository {
             }
         } , this.database.executorService());
     }
+
+    @Override
+    public CompletableFuture<Void> insert(TestEntity entity) {
+        return CompletableFuture.supplyAsync(() -> {
+            try (Connection connection = dataSource.getConnection()) {
+                try (PreparedStatement statement = connection.prepareStatement("insert into hello (a,b,c) values (?,?,?)")) {
+                    statement.setInt(1, entity.a());
+                    statement.setString(2, entity.b());
+                    statement.setString(3, entity.c());
+                    try (ResultSet result = statement.executeQuery()) {
+                        return null;
+                    }
+                }
+            } catch (SQLException exception) {
+                throw new CompletionException("Unexpected error occurred", exception);
+            }
+        } , this.database.executorService());
+    }
 }

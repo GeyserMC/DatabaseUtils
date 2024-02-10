@@ -18,12 +18,10 @@ dependencies {
 tasks.withType<Test>().configureEach {
     doFirst {
         // See: https://github.com/google/compile-testing/issues/222
-        if (javaLauncher.get().metadata.languageVersion >= JavaLanguageVersion.of(9)) {
-            jvmArgs(
-                "--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
-                "--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED",
-                "--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED"
-            )
-        }
+        jvmArgs(
+            "--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
+            "--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED",
+            "--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED"
+        )
     }
 }

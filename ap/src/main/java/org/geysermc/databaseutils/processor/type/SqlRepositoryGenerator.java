@@ -26,6 +26,7 @@ package org.geysermc.databaseutils.processor.type;
 
 import static org.geysermc.databaseutils.processor.type.sql.JdbcTypeMappingRegistry.jdbcGetFor;
 import static org.geysermc.databaseutils.processor.type.sql.JdbcTypeMappingRegistry.jdbcSetFor;
+import static org.geysermc.databaseutils.processor.util.StringUtils.repeat;
 
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.MethodSpec;
@@ -102,7 +103,13 @@ public class SqlRepositoryGenerator extends RepositoryGenerator {
     }
 
     @Override
-    public void addSave(EntityInfo info, VariableElement parameter, MethodSpec.Builder spec, boolean async) {}
+    public void addInsert(EntityInfo info, VariableElement parameter, MethodSpec.Builder spec, boolean async) {
+        var columnNames =
+                String.join(",", info.columns().stream().map(ColumnInfo::name).toList());
+        var columnParameters = String.join(",", repeat("?", info.columns().size()));
+        var query = "insert into %s (%s) values (%s)".formatted(info.name(), columnNames, columnParameters);
+        addSimple(info, parameter, query, info.columns(), spec, async);
+    }
 
     @Override
     public void addUpdate(EntityInfo info, VariableElement parameter, MethodSpec.Builder spec, boolean async) {
@@ -115,7 +122,7 @@ public class SqlRepositoryGenerator extends RepositoryGenerator {
     @Override
     public void addDelete(EntityInfo info, VariableElement parameter, MethodSpec.Builder spec, boolean async) {
         var query = "delete from %s where %s".formatted(info.name(), createWhereForSimple(info));
-        addSimple(info, parameter, query, info.columns(), spec, async);
+        addSimple(info, parameter, query, info.keyColumns(), spec, async);
     }
 
     private void addSimple(
@@ -128,14 +135,7 @@ public class SqlRepositoryGenerator extends RepositoryGenerator {
         var parameterNames =
                 parameters.stream().map(column -> column.name().toString()).toList();
         var parameterFormat = parameter.getSimpleName() + ".%s()";
-        addActionedData(
-                spec,
-                async,
-                query,
-                parameterNames,
-                parameterFormat,
-                info::columnFor,
-                () -> spec.addStatement("return null"));
+        addActionedData(spec, async, query, parameterNames, parameterFormat, info::columnFor, null);
     }
 
     private void addActionedData(
@@ -158,9 +158,14 @@ public class SqlRepositoryGenerator extends RepositoryGenerator {
                         jdbcSetFor(columnType, "statement.%s($L, $L)"), i + 1, parameterFormat.formatted(name));
             }
 
-            spec.beginControlFlow("try ($T result = statement.executeQuery())", ResultSet.class);
-            content.run();
-            spec.endControlFlow();
+            if (content != null) {
+                spec.beginControlFlow("try ($T result = statement.executeQuery())", ResultSet.class);
+                content.run();
+                spec.endControlFlow();
+            } else {
+                spec.addStatement("statement.executeUpdate()");
+                spec.addStatement("return null");
+            }
 
             spec.endControlFlow();
             spec.nextControlFlow("catch ($T exception)", SQLException.class);

@@ -29,9 +29,9 @@ import javax.lang.model.element.VariableElement;
 import org.geysermc.databaseutils.processor.info.EntityInfo;
 import org.geysermc.databaseutils.processor.type.RepositoryGenerator;
 
-final class SaveAction extends SimpleAction {
-    SaveAction() {
-        super("save");
+final class InsertAction extends SimpleAction {
+    InsertAction() {
+        super("insert");
     }
 
     @Override
@@ -41,6 +41,6 @@ final class SaveAction extends SimpleAction {
             VariableElement parameter,
             MethodSpec.Builder spec,
             boolean async) {
-        generator.addSave(info, parameter, spec, async);
+        generator.addInsert(info, parameter, spec, async);
     }
 }

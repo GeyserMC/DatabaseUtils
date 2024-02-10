@@ -24,6 +24,8 @@
  */
 package org.geysermc.databaseutils.processor.util;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 
 public class StringUtils {
@@ -35,5 +37,13 @@ public class StringUtils {
 
     public static String uncapitalize(String string) {
         return string.substring(0, 1).toLowerCase(Locale.ROOT) + string.substring(1);
+    }
+
+    public static List<String> repeat(String string, int count) {
+        var list = new ArrayList<String>(count);
+        for (int i = 0; i < count; i++) {
+            list.add(string);
+        }
+        return list;
     }
 }

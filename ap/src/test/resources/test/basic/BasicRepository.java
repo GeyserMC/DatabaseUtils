@@ -11,4 +11,6 @@ public interface BasicRepository extends IRepository<TestEntity> {
     CompletableFuture<Boolean> existsByAOrB(int a, String b);
 
     CompletableFuture<Void> update(TestEntity entity);
+
+    CompletableFuture<Void> insert(TestEntity entity);
 }

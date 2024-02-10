@@ -48,7 +48,7 @@ public abstract class RepositoryGenerator {
 
     public abstract void addExistsBy(QueryInfo queryInfo, MethodSpec.Builder spec, boolean async);
 
-    public abstract void addSave(EntityInfo info, VariableElement parameter, MethodSpec.Builder spec, boolean async);
+    public abstract void addInsert(EntityInfo info, VariableElement parameter, MethodSpec.Builder spec, boolean async);
 
     public abstract void addUpdate(EntityInfo info, VariableElement parameter, MethodSpec.Builder spec, boolean async);
 
