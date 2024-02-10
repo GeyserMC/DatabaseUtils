@@ -44,9 +44,11 @@ public abstract class RepositoryGenerator {
 
     protected void onConstructorBuilder(MethodSpec.Builder builder) {}
 
-    public abstract void addFindBy(QueryInfo queryInfo, MethodSpec.Builder spec, boolean async);
+    public abstract void addFindBy(QueryInfo info, MethodSpec.Builder spec, boolean async);
 
-    public abstract void addExistsBy(QueryInfo queryInfo, MethodSpec.Builder spec, boolean async);
+    public abstract void addExistsBy(QueryInfo info, MethodSpec.Builder spec, boolean async);
+
+    public abstract void addDeleteBy(QueryInfo info, MethodSpec.Builder spec, boolean async);
 
     public abstract void addInsert(EntityInfo info, VariableElement parameter, MethodSpec.Builder spec, boolean async);
 

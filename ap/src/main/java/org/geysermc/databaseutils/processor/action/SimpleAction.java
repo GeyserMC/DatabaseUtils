@@ -56,7 +56,7 @@ abstract class SimpleAction extends Action {
             EntityInfo info,
             Types typeUtils,
             boolean async) {
-        if (!TypeUtils.isTypeOf(Void.class, TypeUtils.toBoxedTypeElement(returnType.asType(), typeUtils))) {
+        if (!TypeUtils.isTypeOf(Void.class, returnType)) {
             throw new InvalidRepositoryException(
                     "Expected Void as return type for %s, got %s", element.getSimpleName(), returnType);
         }

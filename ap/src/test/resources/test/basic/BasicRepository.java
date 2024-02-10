@@ -13,4 +13,8 @@ public interface BasicRepository extends IRepository<TestEntity> {
     CompletableFuture<Void> update(TestEntity entity);
 
     CompletableFuture<Void> insert(TestEntity entity);
+
+    CompletableFuture<Void> delete(TestEntity entity);
+
+    CompletableFuture<Void> deleteByAAndB(int a, String b);
 }

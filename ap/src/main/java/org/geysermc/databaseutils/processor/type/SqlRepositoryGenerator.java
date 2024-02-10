@@ -63,16 +63,15 @@ public class SqlRepositoryGenerator extends RepositoryGenerator {
     }
 
     @Override
-    public void addFindBy(QueryInfo queryInfo, MethodSpec.Builder spec, boolean async) {
-        var query = "select * from %s where %s"
-                .formatted(queryInfo.tableName(), createWhereForSections(queryInfo.sections()));
-        addActionedData(spec, async, query, queryInfo.parameterNames(), "%s", queryInfo::columnFor, () -> {
+    public void addFindBy(QueryInfo info, MethodSpec.Builder spec, boolean async) {
+        var query = "select * from %s where %s".formatted(info.tableName(), createWhereFor(info));
+        addActionedData(spec, async, query, info.parameterNames(), "%s", info::columnFor, () -> {
             spec.beginControlFlow("if (!result.next())");
             spec.addStatement("return null");
             spec.endControlFlow();
 
             var arguments = new ArrayList<String>();
-            for (ColumnInfo column : queryInfo.columns()) {
+            for (ColumnInfo column : info.columns()) {
                 var columnType = ClassName.bestGuess(column.typeName().toString());
                 spec.addStatement(
                         jdbcGetFor(column.typeName(), "$T _$L = result.%s(%s)"),
@@ -83,23 +82,28 @@ public class SqlRepositoryGenerator extends RepositoryGenerator {
             }
             spec.addStatement(
                     "return new $T($L)",
-                    ClassName.bestGuess(queryInfo.entityType().toString()),
+                    ClassName.bestGuess(info.entityType().toString()),
                     String.join(", ", arguments));
         });
     }
 
     @Override
-    public void addExistsBy(QueryInfo queryInfo, MethodSpec.Builder spec, boolean async) {
-        var query = "select 1 from %s where %s"
-                .formatted(queryInfo.tableName(), createWhereForSections(queryInfo.sections()));
+    public void addExistsBy(QueryInfo info, MethodSpec.Builder spec, boolean async) {
+        var query = "select 1 from %s where %s".formatted(info.tableName(), createWhereFor(info));
         addActionedData(
                 spec,
                 async,
                 query,
-                queryInfo.parameterNames(),
+                info.parameterNames(),
                 "%s",
-                queryInfo::columnFor,
+                info::columnFor,
                 () -> spec.addStatement("return result.next()"));
+    }
+
+    @Override
+    public void addDeleteBy(QueryInfo info, MethodSpec.Builder spec, boolean async) {
+        var query = "delete from %s where %s".formatted(info.tableName(), createWhereFor(info));
+        addActionedData(spec, async, query, info.parameterNames(), "%s", info::columnFor, null);
     }
 
     @Override
@@ -113,7 +117,7 @@ public class SqlRepositoryGenerator extends RepositoryGenerator {
 
     @Override
     public void addUpdate(EntityInfo info, VariableElement parameter, MethodSpec.Builder spec, boolean async) {
-        var query = "update %s set %s where %s".formatted(info.name(), createSetFor(info), createWhereForSimple(info));
+        var query = "update %s set %s where %s".formatted(info.name(), createSetFor(info), createWhereFor(info));
         var parameters = new ArrayList<>(info.notKeyColumns());
         parameters.addAll(info.keyColumns());
         addSimple(info, parameter, query, parameters, spec, async);
@@ -121,7 +125,7 @@ public class SqlRepositoryGenerator extends RepositoryGenerator {
 
     @Override
     public void addDelete(EntityInfo info, VariableElement parameter, MethodSpec.Builder spec, boolean async) {
-        var query = "delete from %s where %s".formatted(info.name(), createWhereForSimple(info));
+        var query = "delete from %s where %s".formatted(info.name(), createWhereFor(info));
         addSimple(info, parameter, query, info.keyColumns(), spec, async);
     }
 
@@ -179,12 +183,12 @@ public class SqlRepositoryGenerator extends RepositoryGenerator {
         return createParametersForColumns(info.notKeyColumns(), ',');
     }
 
-    private String createWhereForSimple(EntityInfo info) {
+    private String createWhereFor(EntityInfo info) {
         return createParametersForColumns(info.keyColumns(), ' ');
     }
 
-    private String createWhereForSections(List<QuerySection> sections) {
-        return createParametersForSections(sections, ' ');
+    private String createWhereFor(QueryInfo info) {
+        return createParametersForSections(info.sections(), ' ');
     }
 
     private String createParametersForColumns(List<ColumnInfo> columns, char separator) {

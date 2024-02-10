@@ -97,4 +97,36 @@ public final class BasicRepositorySqlImpl implements BasicRepository {
             }
         } , this.database.executorService());
     }
+
+    @Override
+    public CompletableFuture<Void> delete(TestEntity entity) {
+        return CompletableFuture.supplyAsync(() -> {
+            try (Connection connection = dataSource.getConnection()) {
+                try (PreparedStatement statement = connection.prepareStatement("delete from hello where a=? and b=?")) {
+                    statement.setInt(1, entity.a());
+                    statement.setString(2, entity.b());
+                    statement.executeUpdate();
+                    return null;
+                }
+            } catch (SQLException exception) {
+                throw new CompletionException("Unexpected error occurred", exception);
+            }
+        } , this.database.executorService());
+    }
+
+    @Override
+    public CompletableFuture<Void> deleteByAAndB(int a, String b) {
+        return CompletableFuture.supplyAsync(() -> {
+            try (Connection connection = dataSource.getConnection()) {
+                try (PreparedStatement statement = connection.prepareStatement("delete from hello where a=? and b=?")) {
+                    statement.setInt(1, a);
+                    statement.setString(2, b);
+                    statement.executeUpdate();
+                    return null;
+                }
+            } catch (SQLException exception) {
+                throw new CompletionException("Unexpected error occurred", exception);
+            }
+        } , this.database.executorService());
+    }
 }
