@@ -30,6 +30,6 @@ subprojects {
             palantirJavaFormat()
             formatAnnotations()
         }
-//        ratchetFrom("origin/main")
+        ratchetFrom("origin/main")
     }
 }
