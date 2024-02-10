@@ -40,6 +40,8 @@ final class SqlTest {
         utils.start();
         var repo = utils.repositoryFor(BasicRepository.class);
 
+        repo.insert(new TestEntity(3, "", "what's up?")).get();
+
         var result = repo.findByAAndB(3, "").get();
         System.out.println(result);
 
@@ -58,5 +60,7 @@ final class SqlTest {
 
         result = repo.findByAAndB(3, "").get();
         System.out.println(result);
+
+        repo.delete(original).get();
     }
 }
