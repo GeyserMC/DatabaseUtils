@@ -25,7 +25,6 @@
 package org.geysermc.databaseutils.processor.query;
 
 import java.util.List;
-import javax.lang.model.element.VariableElement;
 import org.geysermc.databaseutils.processor.info.ColumnInfo;
 import org.geysermc.databaseutils.processor.query.section.QuerySection;
 
@@ -34,8 +33,8 @@ public record QueryInfo(
         CharSequence entityType,
         List<ColumnInfo> columns,
         List<QuerySection> sections,
-        List<? extends VariableElement> parameters) {
-    public ColumnInfo columnFor(String columnName) {
+        List<? extends CharSequence> parameterNames) {
+    public ColumnInfo columnFor(CharSequence columnName) {
         for (ColumnInfo column : columns) {
             if (column.name().contentEquals(columnName)) {
                 return column;

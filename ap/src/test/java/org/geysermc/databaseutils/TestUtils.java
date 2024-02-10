@@ -62,15 +62,15 @@ final class TestUtils {
             var repoImplName = sourceResourceName + databaseType + "Impl";
             var generatedRepo = compilation.generatedSourceFile(repoImplName);
             assertTrue(generatedRepo.isPresent(), "Expected " + repoImplName + " to be generated");
-            assertThat(JavaFileObjects.forResource(repoImplName + ".java")).hasSourceEquivalentTo(generatedRepo.get());
+            assertThat(generatedRepo.get()).hasSourceEquivalentTo(JavaFileObjects.forResource(repoImplName + ".java"));
 
             // db
             var expectedDatabaseImpl = folder + databaseTypeClass.getSimpleName() + "Generated";
             var actualDatabaseImpl = compilation.generatedSourceFile(
                     databaseTypeClass.getCanonicalName().replace('.', '/') + "Generated");
             assertTrue(actualDatabaseImpl.isPresent(), "Expected " + expectedDatabaseImpl + " to be generated");
-            assertThat(JavaFileObjects.forResource(expectedDatabaseImpl + ".java"))
-                    .hasSourceEquivalentTo(actualDatabaseImpl.get());
+            assertThat(actualDatabaseImpl.get())
+                    .hasSourceEquivalentTo(JavaFileObjects.forResource(expectedDatabaseImpl + ".java"));
         }
     }
 }

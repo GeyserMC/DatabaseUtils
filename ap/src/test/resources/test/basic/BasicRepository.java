@@ -9,4 +9,6 @@ public interface BasicRepository extends IRepository<TestEntity> {
     CompletableFuture<TestEntity> findByAAndB(int a, String b);
 
     CompletableFuture<Boolean> existsByAOrB(int a, String b);
+
+    CompletableFuture<Void> update(TestEntity entity);
 }

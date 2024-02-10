@@ -48,6 +48,14 @@ public final class TypeUtils {
         return canonicalName.contentEquals(clazz.getCanonicalName());
     }
 
+    public static boolean isTypeOf(CharSequence name, TypeElement element) {
+        return element.getQualifiedName().contentEquals(name);
+    }
+
+    public static boolean isTypeOf(CharSequence expected, TypeMirror actual) {
+        return isTypeOf(expected, MoreTypes.asTypeElement(actual));
+    }
+
     public static String packageNameFor(Name className) {
         return packageNameFor(className.toString());
     }

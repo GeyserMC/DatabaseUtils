@@ -25,15 +25,30 @@
 package org.geysermc.databaseutils.processor.info;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 public record EntityInfo(
-        String name, CharSequence className, List<ColumnInfo> columns, List<IndexInfo> indexes, boolean compositeKey) {
-    public ColumnInfo columnFor(String columnName) {
+        String name,
+        CharSequence className,
+        List<ColumnInfo> columns,
+        List<IndexInfo> indexes,
+        List<CharSequence> keys) {
+    public ColumnInfo columnFor(CharSequence columnName) {
         for (ColumnInfo column : columns) {
             if (column.name().contentEquals(columnName)) {
                 return column;
             }
         }
         return null;
+    }
+
+    public List<ColumnInfo> keyColumns() {
+        return keys.stream().map(this::columnFor).collect(Collectors.toList());
+    }
+
+    public List<ColumnInfo> notKeyColumns() {
+        return columns().stream()
+                .filter(column -> !keys.contains(column.name()))
+                .toList();
     }
 }

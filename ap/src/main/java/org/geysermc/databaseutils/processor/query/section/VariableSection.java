@@ -24,4 +24,4 @@
  */
 package org.geysermc.databaseutils.processor.query.section;
 
-public record VariableSection(String name) implements QuerySection {}
+public record VariableSection(CharSequence name) implements QuerySection {}

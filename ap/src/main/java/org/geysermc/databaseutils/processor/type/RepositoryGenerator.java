@@ -30,6 +30,8 @@ import com.squareup.javapoet.TypeSpec;
 import java.util.concurrent.CompletableFuture;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
+import javax.lang.model.element.VariableElement;
+import org.geysermc.databaseutils.processor.info.EntityInfo;
 import org.geysermc.databaseutils.processor.query.QueryInfo;
 import org.geysermc.databaseutils.processor.util.TypeUtils;
 
@@ -46,7 +48,11 @@ public abstract class RepositoryGenerator {
 
     public abstract void addExistsBy(QueryInfo queryInfo, MethodSpec.Builder spec, boolean async);
 
-    public abstract void addSimple(String actionType, QueryInfo queryInfo, MethodSpec.Builder spec, boolean async);
+    public abstract void addSave(EntityInfo info, VariableElement parameter, MethodSpec.Builder spec, boolean async);
+
+    public abstract void addUpdate(EntityInfo info, VariableElement parameter, MethodSpec.Builder spec, boolean async);
+
+    public abstract void addDelete(EntityInfo info, VariableElement parameter, MethodSpec.Builder spec, boolean async);
 
     public void init(TypeElement superType) {
         if (this.typeSpec != null) {

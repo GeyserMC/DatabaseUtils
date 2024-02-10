@@ -27,7 +27,6 @@ package org.geysermc.databaseutils.processor;
 import com.google.auto.common.MoreTypes;
 import com.google.auto.service.AutoService;
 import com.squareup.javapoet.JavaFile;
-import com.squareup.javapoet.MethodSpec;
 import com.squareup.javapoet.TypeSpec;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -52,7 +51,6 @@ import javax.tools.Diagnostic;
 import org.geysermc.databaseutils.IRepository;
 import org.geysermc.databaseutils.meta.Repository;
 import org.geysermc.databaseutils.processor.action.ActionRegistry;
-import org.geysermc.databaseutils.processor.query.QueryInfo;
 import org.geysermc.databaseutils.processor.type.RepositoryGenerator;
 import org.geysermc.databaseutils.processor.util.InvalidRepositoryException;
 import org.geysermc.databaseutils.processor.util.TypeUtils;
@@ -215,14 +213,7 @@ public final class RepositoryProcessor extends AbstractProcessor {
             if (action == null) {
                 throw new InvalidRepositoryException("No available actions for %s", name);
             }
-            var sections = action.querySectionsFor(name, element, returnType, entity, typeUtils);
-
-            var queryInfo = new QueryInfo(
-                    entity.name(), entity.className(), entity.columns(), sections, element.getParameters());
-
-            for (RepositoryGenerator generator : generators) {
-                action.addTo(generator, queryInfo, MethodSpec.overriding(element), async);
-            }
+            action.addTo(generators, name, element, returnType, entity, typeUtils, async);
         }
 
         return generators;

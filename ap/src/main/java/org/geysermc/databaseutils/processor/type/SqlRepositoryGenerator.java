@@ -27,8 +27,6 @@ package org.geysermc.databaseutils.processor.type;
 import static org.geysermc.databaseutils.processor.type.sql.JdbcTypeMappingRegistry.jdbcGetFor;
 import static org.geysermc.databaseutils.processor.type.sql.JdbcTypeMappingRegistry.jdbcSetFor;
 
-import ca.krasnay.sqlbuilder.Predicate;
-import ca.krasnay.sqlbuilder.Predicates;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.MethodSpec;
 import com.zaxxer.hikari.HikariDataSource;
@@ -39,14 +37,16 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletionException;
+import java.util.function.Function;
 import javax.lang.model.element.Modifier;
+import javax.lang.model.element.VariableElement;
 import org.geysermc.databaseutils.processor.info.ColumnInfo;
+import org.geysermc.databaseutils.processor.info.EntityInfo;
 import org.geysermc.databaseutils.processor.query.QueryInfo;
 import org.geysermc.databaseutils.processor.query.section.QuerySection;
 import org.geysermc.databaseutils.processor.query.section.VariableSection;
 import org.geysermc.databaseutils.processor.query.section.selector.AndSelector;
 import org.geysermc.databaseutils.processor.query.section.selector.OrSelector;
-import org.geysermc.databaseutils.processor.type.sql.CustomSelectCreator;
 import org.geysermc.databaseutils.processor.util.InvalidRepositoryException;
 
 public class SqlRepositoryGenerator extends RepositoryGenerator {
@@ -63,8 +63,9 @@ public class SqlRepositoryGenerator extends RepositoryGenerator {
 
     @Override
     public void addFindBy(QueryInfo queryInfo, MethodSpec.Builder spec, boolean async) {
-        var queryCreator = new CustomSelectCreator().where(createPredicateFor(queryInfo));
-        addActionedData(queryInfo, spec, async, queryCreator, () -> {
+        var query = "select * from %s where %s"
+                .formatted(queryInfo.tableName(), createWhereForSections(queryInfo.sections()));
+        addActionedData(spec, async, query, queryInfo.parameterNames(), "%s", queryInfo::columnFor, () -> {
             spec.beginControlFlow("if (!result.next())");
             spec.addStatement("return null");
             spec.endControlFlow();
@@ -88,34 +89,73 @@ public class SqlRepositoryGenerator extends RepositoryGenerator {
 
     @Override
     public void addExistsBy(QueryInfo queryInfo, MethodSpec.Builder spec, boolean async) {
-        var queryCreator = new CustomSelectCreator().column("1").where(createPredicateFor(queryInfo));
-        addActionedData(queryInfo, spec, async, queryCreator, () -> spec.addStatement("return result.next()"));
+        var query = "select 1 from %s where %s"
+                .formatted(queryInfo.tableName(), createWhereForSections(queryInfo.sections()));
+        addActionedData(
+                spec,
+                async,
+                query,
+                queryInfo.parameterNames(),
+                "%s",
+                queryInfo::columnFor,
+                () -> spec.addStatement("return result.next()"));
     }
 
     @Override
-    public void addSimple(String actionType, QueryInfo queryInfo, MethodSpec.Builder spec, boolean async) {
+    public void addSave(EntityInfo info, VariableElement parameter, MethodSpec.Builder spec, boolean async) {}
 
+    @Override
+    public void addUpdate(EntityInfo info, VariableElement parameter, MethodSpec.Builder spec, boolean async) {
+        var query = "update %s set %s where %s".formatted(info.name(), createSetFor(info), createWhereForSimple(info));
+        var parameters = new ArrayList<>(info.notKeyColumns());
+        parameters.addAll(info.keyColumns());
+        addSimple(info, parameter, query, parameters, spec, async);
+    }
+
+    @Override
+    public void addDelete(EntityInfo info, VariableElement parameter, MethodSpec.Builder spec, boolean async) {
+        var query = "delete from %s where %s".formatted(info.name(), createWhereForSimple(info));
+        addSimple(info, parameter, query, info.columns(), spec, async);
+    }
+
+    private void addSimple(
+            EntityInfo info,
+            VariableElement parameter,
+            String query,
+            List<ColumnInfo> parameters,
+            MethodSpec.Builder spec,
+            boolean async) {
+        var parameterNames =
+                parameters.stream().map(column -> column.name().toString()).toList();
+        var parameterFormat = parameter.getSimpleName() + ".%s()";
+        addActionedData(
+                spec,
+                async,
+                query,
+                parameterNames,
+                parameterFormat,
+                info::columnFor,
+                () -> spec.addStatement("return null"));
     }
 
     private void addActionedData(
-            QueryInfo queryInfo,
             MethodSpec.Builder spec,
             boolean async,
-            CustomSelectCreator queryCreator,
+            String query,
+            List<? extends CharSequence> parameterNames,
+            String parameterFormat,
+            Function<CharSequence, ColumnInfo> columnFor,
             Runnable content) {
         wrapInCompletableFuture(spec, async, () -> {
-            var specResult = queryCreator.from(queryInfo.tableName()).toSpecResult();
-            var query = specResult.query();
-
             spec.beginControlFlow("try ($T connection = dataSource.getConnection())", Connection.class);
             spec.beginControlFlow(
-                    "try ($T statement = connection.prepareStatement($L))", PreparedStatement.class, query);
+                    "try ($T statement = connection.prepareStatement($S))", PreparedStatement.class, query);
 
-            var parameterNames = specResult.parameterNames();
             for (int i = 0; i < parameterNames.size(); i++) {
                 var name = parameterNames.get(i);
-                var columnType = queryInfo.columnFor(name).typeName();
-                spec.addStatement(jdbcSetFor(columnType, "statement.%s($L, $L)"), i + 1, parameterNames.get(i));
+                var columnType = columnFor.apply(name).typeName();
+                spec.addStatement(
+                        jdbcSetFor(columnType, "statement.%s($L, $L)"), i + 1, parameterFormat.formatted(name));
             }
 
             spec.beginControlFlow("try ($T result = statement.executeQuery())", ResultSet.class);
@@ -130,45 +170,47 @@ public class SqlRepositoryGenerator extends RepositoryGenerator {
         typeSpec.addMethod(spec.build());
     }
 
-    private Predicate createPredicateFor(QueryInfo info) {
-        var sections = new ArrayList<>(info.sections());
+    private String createSetFor(EntityInfo info) {
+        return createParametersForColumns(info.notKeyColumns(), ',');
+    }
 
-        // infix to prefix
-        // AOrBAndC -> OrAAndBC
-        for (int i = 0; i < sections.size(); i++) {
-            var section = sections.get(i);
-            if (!(section instanceof VariableSection)) {
-                // this is fine because the index doesn't shift
-                //noinspection SuspiciousListRemoveInLoop
-                sections.remove(i);
-                sections.add(i - 1, section);
+    private String createWhereForSimple(EntityInfo info) {
+        return createParametersForColumns(info.keyColumns(), ' ');
+    }
+
+    private String createWhereForSections(List<QuerySection> sections) {
+        return createParametersForSections(sections, ' ');
+    }
+
+    private String createParametersForColumns(List<ColumnInfo> columns, char separator) {
+        var sections = new ArrayList<QuerySection>();
+        for (ColumnInfo column : columns) {
+            if (!sections.isEmpty()) {
+                sections.add(AndSelector.INSTANCE);
+            }
+            sections.add(new VariableSection(column.name()));
+        }
+        return createParametersForSections(sections, separator);
+    }
+
+    private String createParametersForSections(List<QuerySection> sections, char separator) {
+        var builder = new StringBuilder();
+        for (QuerySection section : sections) {
+            if (!builder.isEmpty()) {
+                builder.append(separator);
+            }
+
+            if (section instanceof VariableSection variable) {
+                builder.append(variable.name()).append("=?");
+            } else if (section instanceof AndSelector) {
+                builder.append("and");
+            } else if (section instanceof OrSelector) {
+                builder.append("or");
+            } else {
+                throw new InvalidRepositoryException(
+                        "Unknown action type %s", section.getClass().getCanonicalName());
             }
         }
-
-        return createPredicateFor(info, sections, 0, 0).predicate;
+        return builder.toString();
     }
-
-    private PredicateStep createPredicateFor(QueryInfo info, List<QuerySection> sections, int index, int varIndex) {
-        var section = sections.get(index);
-        if (section instanceof VariableSection variable) {
-            return new PredicateStep(
-                    Predicates.eq(
-                            variable.name(), info.parameters().get(varIndex).getSimpleName()),
-                    index,
-                    varIndex + 1);
-        } else if (section instanceof AndSelector) {
-            var left = createPredicateFor(info, sections, index + 1, varIndex);
-            var right = createPredicateFor(info, sections, left.index + 1, left.varIndex);
-            return new PredicateStep(Predicates.and(left.predicate, right.predicate), right.index, right.varIndex);
-        } else if (section instanceof OrSelector) {
-            var left = createPredicateFor(info, sections, index + 1, varIndex);
-            var right = createPredicateFor(info, sections, left.index + 1, left.varIndex);
-            return new PredicateStep(Predicates.or(left.predicate, right.predicate), right.index, right.varIndex);
-        } else {
-            throw new InvalidRepositoryException(
-                    "Unknown action type %s", section.getClass().getCanonicalName());
-        }
-    }
-
-    private record PredicateStep(Predicate predicate, int index, int varIndex) {}
 }

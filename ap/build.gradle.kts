@@ -3,7 +3,6 @@ dependencies {
     implementation(projects.databaseCore)
 
     implementation(projects.databaseSql)
-    implementation(libs.sqlbuilder)
 
     implementation(projects.databaseMongo)
 

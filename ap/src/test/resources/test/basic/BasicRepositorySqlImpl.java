@@ -5,6 +5,7 @@ import java.lang.Boolean;
 import java.lang.Integer;
 import java.lang.Override;
 import java.lang.String;
+import java.lang.Void;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -27,7 +28,7 @@ public final class BasicRepositorySqlImpl implements BasicRepository {
     public CompletableFuture<TestEntity> findByAAndB(int a, String b) {
         return CompletableFuture.supplyAsync(() -> {
             try (Connection connection = dataSource.getConnection()) {
-                try (PreparedStatement statement = connection.prepareStatement("select * from hello where (a = ? and b = ?)")) {
+                try (PreparedStatement statement = connection.prepareStatement("select * from hello where a=? and b=?")) {
                     statement.setInt(1, a);
                     statement.setString(2, b);
                     try (ResultSet result = statement.executeQuery()) {
@@ -50,11 +51,29 @@ public final class BasicRepositorySqlImpl implements BasicRepository {
     public CompletableFuture<Boolean> existsByAOrB(int a, String b) {
         return CompletableFuture.supplyAsync(() -> {
             try (Connection connection = dataSource.getConnection()) {
-                try (PreparedStatement statement = connection.prepareStatement("select 1 from hello where (a = ? or b = ?)")) {
+                try (PreparedStatement statement = connection.prepareStatement("select 1 from hello where a=? or b=?")) {
                     statement.setInt(1, a);
                     statement.setString(2, b);
                     try (ResultSet result = statement.executeQuery()) {
                         return result.next();
+                    }
+                }
+            } catch (SQLException exception) {
+                throw new CompletionException("Unexpected error occurred", exception);
+            }
+        } , this.database.executorService());
+    }
+
+    @Override
+    public CompletableFuture<Void> update(TestEntity entity) {
+        return CompletableFuture.supplyAsync(() -> {
+            try (Connection connection = dataSource.getConnection()) {
+                try (PreparedStatement statement = connection.prepareStatement("update hello set c=? where a=? and b=?")) {
+                    statement.setString(1, entity.c());
+                    statement.setInt(2, entity.a());
+                    statement.setString(3, entity.b());
+                    try (ResultSet result = statement.executeQuery()) {
+                        return null;
                     }
                 }
             } catch (SQLException exception) {
