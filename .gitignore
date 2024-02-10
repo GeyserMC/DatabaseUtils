@@ -5,6 +5,8 @@
 !README.md
 !LICENSE
 !license_header.txt
+!.github
+!.github/**
 
 # Don't ignore specific gradle files and folders
 !gradle

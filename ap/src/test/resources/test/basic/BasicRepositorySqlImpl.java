@@ -72,9 +72,8 @@ public final class BasicRepositorySqlImpl implements BasicRepository {
                     statement.setString(1, entity.c());
                     statement.setInt(2, entity.a());
                     statement.setString(3, entity.b());
-                    try (ResultSet result = statement.executeQuery()) {
-                        return null;
-                    }
+                    statement.executeUpdate();
+                    return null;
                 }
             } catch (SQLException exception) {
                 throw new CompletionException("Unexpected error occurred", exception);
@@ -90,9 +89,8 @@ public final class BasicRepositorySqlImpl implements BasicRepository {
                     statement.setInt(1, entity.a());
                     statement.setString(2, entity.b());
                     statement.setString(3, entity.c());
-                    try (ResultSet result = statement.executeQuery()) {
-                        return null;
-                    }
+                    statement.executeUpdate();
+                    return null;
                 }
             } catch (SQLException exception) {
                 throw new CompletionException("Unexpected error occurred", exception);

@@ -6,6 +6,7 @@ h2 = "2.2.224"
 javapoet = "1.10.0"
 auto-service = "1.1.1"
 compile-testing = "0.21.0"
+junit = "5.9.1"
 
 indra = "3.1.3"
 
@@ -18,6 +19,9 @@ h2 = { module = "com.h2database:h2", version.ref = "h2" }
 auto-service = { module = "com.google.auto.service:auto-service", version.ref = "auto-service" }
 javapoet = { module = "com.squareup:javapoet", version.ref = "javapoet" }
 compile-testing = { module = "com.google.testing.compile:compile-testing", version.ref = "compile-testing" }
+
+junit-api = { module = "org.junit.jupiter:junit-jupiter-api", version.ref = "junit" }
+junit-engine = { module = "org.junit.jupiter:junit-jupiter-engine", version.ref = "junit" }
 
 [plugins]
 indra = { id = "net.kyori.indra", version.ref = "indra" }
