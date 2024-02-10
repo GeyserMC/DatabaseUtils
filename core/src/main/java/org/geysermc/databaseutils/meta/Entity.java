@@ -33,7 +33,7 @@ import java.lang.annotation.Target;
 @Target(ElementType.TYPE)
 public @interface Entity {
     /**
-     * Returns the name of the table containing this entity
+     * Returns the name of the table containing this entity. Defaults to the name of the class
      */
-    String value();
+    String value() default "";
 }

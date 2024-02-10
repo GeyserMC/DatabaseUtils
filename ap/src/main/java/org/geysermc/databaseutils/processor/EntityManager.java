@@ -69,6 +69,9 @@ final class EntityManager {
             throw new IllegalStateException("Tried to process entity without an Entity annotation");
         }
         String tableName = entity.value();
+        if ("".equals(tableName)) {
+            tableName = type.getSimpleName().toString();
+        }
 
         var constructors = new ArrayList<ExecutableElement>();
         var keys = new ArrayList<CharSequence>();
