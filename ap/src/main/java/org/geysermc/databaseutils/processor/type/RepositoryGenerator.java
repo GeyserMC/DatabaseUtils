@@ -55,11 +55,14 @@ public abstract class RepositoryGenerator {
 
     public abstract void addDeleteBy(QueryInfo info, MethodSpec.Builder spec, boolean async);
 
-    public abstract void addInsert(EntityInfo info, VariableElement parameter, MethodSpec.Builder spec, boolean async);
+    public abstract void addInsert(
+            EntityInfo info, TypeElement returnType, VariableElement parameter, MethodSpec.Builder spec, boolean async);
 
-    public abstract void addUpdate(EntityInfo info, VariableElement parameter, MethodSpec.Builder spec, boolean async);
+    public abstract void addUpdate(
+            EntityInfo info, TypeElement returnType, VariableElement parameter, MethodSpec.Builder spec, boolean async);
 
-    public abstract void addDelete(EntityInfo info, VariableElement parameter, MethodSpec.Builder spec, boolean async);
+    public abstract void addDelete(
+            EntityInfo info, TypeElement returnType, VariableElement parameter, MethodSpec.Builder spec, boolean async);
 
     public void init(TypeElement superType, EntityInfo entityInfo) {
         if (this.typeSpec != null) {

@@ -43,6 +43,7 @@ abstract class SimpleAction extends Action {
     protected abstract void addToSingle(
             RepositoryGenerator generator,
             EntityInfo info,
+            TypeElement returnType,
             VariableElement parameter,
             MethodSpec.Builder spec,
             boolean async);
@@ -56,15 +57,16 @@ abstract class SimpleAction extends Action {
             EntityInfo info,
             Types typeUtils,
             boolean async) {
-        if (!TypeUtils.isTypeOf(Void.class, returnType)) {
+        if (!TypeUtils.isTypeOf(Void.class, returnType) && !TypeUtils.isTypeOf(info.className(), returnType)) {
             throw new InvalidRepositoryException(
-                    "Expected Void as return type for %s, got %s", element.getSimpleName(), returnType);
+                    "Expected either Void or %s as return type for %s, got %s",
+                    info.className(), element.getSimpleName(), returnType);
         }
         if (element.getParameters().size() == 1) {
             var parameter = element.getParameters().get(0);
             if (TypeUtils.isTypeOf(info.className(), parameter.asType())) {
                 for (RepositoryGenerator generator : generators) {
-                    addToSingle(generator, info, parameter, MethodSpec.overriding(element), async);
+                    addToSingle(generator, info, returnType, parameter, MethodSpec.overriding(element), async);
                 }
                 return;
             }

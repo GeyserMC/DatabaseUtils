@@ -45,8 +45,8 @@ public final class TypeUtils {
         return isTypeOf(clazz, element.getQualifiedName());
     }
 
-    public static boolean isTypeOf(Class<?> clazz, Name canonicalName) {
-        return canonicalName.contentEquals(clazz.getCanonicalName());
+    public static boolean isTypeOf(Class<?> clazz, CharSequence canonicalName) {
+        return clazz.getCanonicalName().contentEquals(canonicalName);
     }
 
     public static boolean isTypeOf(CharSequence name, TypeElement element) {
@@ -55,6 +55,10 @@ public final class TypeUtils {
 
     public static boolean isTypeOf(CharSequence expected, TypeMirror actual) {
         return isTypeOf(expected, MoreTypes.asTypeElement(actual));
+    }
+
+    public static boolean isTypeOf(CharSequence expected, CharSequence actual) {
+        return CharSequence.compare(expected, actual) == 0;
     }
 
     public static String packageNameFor(Name className) {

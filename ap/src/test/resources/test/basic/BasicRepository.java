@@ -10,7 +10,7 @@ public interface BasicRepository extends IRepository<TestEntity> {
 
     CompletableFuture<Boolean> existsByAOrB(int a, String bb);
 
-    CompletableFuture<Void> update(TestEntity entity);
+    TestEntity update(TestEntity entity);
 
     CompletableFuture<Void> insert(TestEntity entity);
 

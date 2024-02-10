@@ -72,21 +72,19 @@ public final class BasicRepositorySqlImpl implements BasicRepository {
     }
 
     @Override
-    public CompletableFuture<Void> update(TestEntity entity) {
-        return CompletableFuture.supplyAsync(() -> {
-            try (Connection connection = dataSource.getConnection()) {
-                try (PreparedStatement statement = connection.prepareStatement("update hello set c=?,d=? where a=? and b=?")) {
-                    statement.setString(1, entity.c());
-                    statement.setBytes(2, this.__d.encode(entity.d()));
-                    statement.setInt(3, entity.a());
-                    statement.setString(4, entity.b());
-                    statement.executeUpdate();
-                    return null;
-                }
-            } catch (SQLException exception) {
-                throw new CompletionException("Unexpected error occurred", exception);
+    public TestEntity update(TestEntity entity) {
+        try (Connection connection = dataSource.getConnection()) {
+            try (PreparedStatement statement = connection.prepareStatement("update hello set c=?,d=? where a=? and b=?")) {
+                statement.setString(1, entity.c());
+                statement.setBytes(2, this.__d.encode(entity.d()));
+                statement.setInt(3, entity.a());
+                statement.setString(4, entity.b());
+                statement.executeUpdate();
+                return entity;
             }
-        } , this.database.executorService());
+        } catch (SQLException exception) {
+            throw new CompletionException("Unexpected error occurred", exception);
+        }
     }
 
     @Override

@@ -42,6 +42,7 @@ import java.util.concurrent.CompletionException;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import javax.lang.model.element.Modifier;
+import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
 import org.geysermc.databaseutils.processor.info.ColumnInfo;
 import org.geysermc.databaseutils.processor.info.EntityInfo;
@@ -68,7 +69,7 @@ public class SqlRepositoryGenerator extends RepositoryGenerator {
     @Override
     public void addFindBy(QueryInfo info, MethodSpec.Builder spec, boolean async) {
         var query = "select * from %s where %s".formatted(info.tableName(), createWhereFor(info));
-        addActionedData(spec, async, query, info.variableNames(), info.parameterNames(), null, info::columnFor, () -> {
+        addActionedQueryData(spec, async, query, info.variableNames(), info.parameterNames(), info::columnFor, () -> {
             spec.beginControlFlow("if (!result.next())");
             spec.addStatement("return null");
             spec.endControlFlow();
@@ -96,13 +97,12 @@ public class SqlRepositoryGenerator extends RepositoryGenerator {
     @Override
     public void addExistsBy(QueryInfo info, MethodSpec.Builder spec, boolean async) {
         var query = "select 1 from %s where %s".formatted(info.tableName(), createWhereFor(info));
-        addActionedData(
+        addActionedQueryData(
                 spec,
                 async,
                 query,
                 info.variableNames(),
                 info.parameterNames(),
-                null,
                 info::columnFor,
                 () -> spec.addStatement("return result.next()"));
     }
@@ -110,34 +110,59 @@ public class SqlRepositoryGenerator extends RepositoryGenerator {
     @Override
     public void addDeleteBy(QueryInfo info, MethodSpec.Builder spec, boolean async) {
         var query = "delete from %s where %s".formatted(info.tableName(), createWhereFor(info));
-        addActionedData(spec, async, query, info.variableNames(), info.parameterNames(), null, info::columnFor, null);
+        addActionedUpdateData(
+                spec,
+                info.entityType(),
+                Void.class.getCanonicalName(),
+                async,
+                query,
+                info.variableNames(),
+                info.parameterNames(),
+                null,
+                info::columnFor);
     }
 
     @Override
-    public void addInsert(EntityInfo info, VariableElement parameter, MethodSpec.Builder spec, boolean async) {
+    public void addInsert(
+            EntityInfo info,
+            TypeElement returnType,
+            VariableElement parameter,
+            MethodSpec.Builder spec,
+            boolean async) {
         var columnNames =
                 String.join(",", info.columns().stream().map(ColumnInfo::name).toList());
         var columnParameters = String.join(",", repeat("?", info.columns().size()));
         var query = "insert into %s (%s) values (%s)".formatted(info.name(), columnNames, columnParameters);
-        addSimple(info, parameter, query, info.columns(), spec, async);
+        addSimple(info, returnType, parameter, query, info.columns(), spec, async);
     }
 
     @Override
-    public void addUpdate(EntityInfo info, VariableElement parameter, MethodSpec.Builder spec, boolean async) {
+    public void addUpdate(
+            EntityInfo info,
+            TypeElement returnType,
+            VariableElement parameter,
+            MethodSpec.Builder spec,
+            boolean async) {
         var query = "update %s set %s where %s".formatted(info.name(), createSetFor(info), createWhereFor(info));
         var variables = new ArrayList<>(info.notKeyColumns());
         variables.addAll(info.keyColumns());
-        addSimple(info, parameter, query, variables, spec, async);
+        addSimple(info, returnType, parameter, query, variables, spec, async);
     }
 
     @Override
-    public void addDelete(EntityInfo info, VariableElement parameter, MethodSpec.Builder spec, boolean async) {
+    public void addDelete(
+            EntityInfo info,
+            TypeElement returnType,
+            VariableElement parameter,
+            MethodSpec.Builder spec,
+            boolean async) {
         var query = "delete from %s where %s".formatted(info.name(), createWhereFor(info));
-        addSimple(info, parameter, query, info.keyColumns(), spec, async);
+        addSimple(info, returnType, parameter, query, info.keyColumns(), spec, async);
     }
 
     private void addSimple(
             EntityInfo info,
+            TypeElement returnType,
             VariableElement parameter,
             String query,
             List<ColumnInfo> variables,
@@ -146,7 +171,55 @@ public class SqlRepositoryGenerator extends RepositoryGenerator {
         var variableNames =
                 variables.stream().map(column -> column.name().toString()).toList();
         var variableFormat = parameter.getSimpleName() + ".%s()";
-        addActionedData(spec, async, query, variableNames, null, variableFormat, info::columnFor, null);
+        addActionedUpdateData(
+                spec,
+                info.className(),
+                returnType.getQualifiedName(),
+                async,
+                query,
+                variableNames,
+                List.of(parameter.getSimpleName()),
+                variableFormat,
+                info::columnFor);
+    }
+
+    private void addActionedQueryData(
+            MethodSpec.Builder spec,
+            boolean async,
+            String query,
+            List<? extends CharSequence> variableNames,
+            List<? extends CharSequence> parameterNames,
+            Function<CharSequence, ColumnInfo> columnFor,
+            Runnable content) {
+        addActionedData(spec, async, query, variableNames, parameterNames, null, columnFor, () -> {
+            spec.beginControlFlow("try ($T result = statement.executeQuery())", ResultSet.class);
+            content.run();
+            spec.endControlFlow();
+        });
+    }
+
+    private void addActionedUpdateData(
+            MethodSpec.Builder spec,
+            CharSequence entityType,
+            CharSequence returnType,
+            boolean async,
+            String query,
+            List<? extends CharSequence> variableNames,
+            List<? extends CharSequence> parameterNames,
+            String variableFormat,
+            Function<CharSequence, ColumnInfo> columnFor) {
+        addActionedData(spec, async, query, variableNames, parameterNames, variableFormat, columnFor, () -> {
+            spec.addStatement("statement.executeUpdate()");
+            if (TypeUtils.isTypeOf(Void.class, returnType)) {
+                spec.addStatement("return null");
+            } else if (TypeUtils.isTypeOf(entityType, returnType)) {
+                // todo support also creating an entity type from the given parameters
+                spec.addStatement("return $L", parameterNames.get(0));
+            } else {
+                throw new InvalidRepositoryException(
+                        "Return type can be either void or %s but got %s", entityType, returnType);
+            }
+        });
     }
 
     private void addActionedData(
@@ -175,14 +248,7 @@ public class SqlRepositoryGenerator extends RepositoryGenerator {
                 spec.addStatement(jdbcSetFor(columnType, "statement.%s($L, $L)"), i + 1, input);
             }
 
-            if (content != null) {
-                spec.beginControlFlow("try ($T result = statement.executeQuery())", ResultSet.class);
-                content.run();
-                spec.endControlFlow();
-            } else {
-                spec.addStatement("statement.executeUpdate()");
-                spec.addStatement("return null");
-            }
+            content.run();
 
             spec.endControlFlow();
             spec.nextControlFlow("catch ($T exception)", SQLException.class);
