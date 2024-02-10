@@ -34,7 +34,13 @@ public final class SqlTypeMappingRegistry {
     private SqlTypeMappingRegistry() {}
 
     public static String sqlTypeFor(Class<?> type, SqlDialect dialect) {
-        return DIALECT_MAPPINGS.getOrDefault(dialect, Collections.emptyMap()).get(type);
+        var dialectMapping = DIALECT_MAPPINGS.getOrDefault(dialect, Collections.emptyMap());
+        var mapping = dialectMapping.getOrDefault(type, dialectMapping.get(Byte[].class));
+        if (mapping != null) {
+            return mapping;
+        }
+        throw new IllegalStateException(
+                String.format("Was not able to find mapping for %s with dialect %s", type.getName(), dialectMapping));
     }
 
     private static void addDialectMapping(SqlDialect dialect, Class<?> type, String mapping) {

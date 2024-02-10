@@ -34,9 +34,10 @@ import com.squareup.javapoet.WildcardTypeName;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.function.Function;
+import java.util.function.BiFunction;
 import javax.lang.model.element.Modifier;
 import org.geysermc.databaseutils.IRepository;
+import org.geysermc.databaseutils.codec.TypeCodecRegistry;
 import org.geysermc.databaseutils.processor.info.EntityInfo;
 
 public abstract class DatabaseGenerator {
@@ -71,13 +72,14 @@ public abstract class DatabaseGenerator {
         }
         spec.addStaticBlock(builder.build());
 
-        // List<Function<dbClass, IRepository<?>>>
+        // List<BiFunction<dbClass, TypeCodecRegistry, IRepository<?>>>
         spec.addField(
                 ParameterizedTypeName.get(
                         ClassName.get(List.class),
                         ParameterizedTypeName.get(
-                                ClassName.get(Function.class),
+                                ClassName.get(BiFunction.class),
                                 ClassName.get(databaseClass()),
+                                ClassName.get(TypeCodecRegistry.class),
                                 ParameterizedTypeName.get(
                                         ClassName.get(IRepository.class), WildcardTypeName.subtypeOf(Object.class)))),
                 "REPOSITORIES",

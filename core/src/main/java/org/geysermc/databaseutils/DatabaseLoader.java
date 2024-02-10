@@ -30,12 +30,13 @@ import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
-import java.util.function.Function;
+import java.util.function.BiFunction;
 import org.checkerframework.checker.nullness.qual.NonNull;
+import org.geysermc.databaseutils.codec.TypeCodecRegistry;
 
 final class DatabaseLoader {
     @SuppressWarnings({"unchecked"})
-    @NonNull StartResult startDatabase(DatabaseConfig config, ExecutorService service) {
+    @NonNull StartResult startDatabase(DatabaseConfig config, ExecutorService service, TypeCodecRegistry registry) {
         var database = DatabaseRegistry.firstPresentDatabase();
         if (database == null) {
             throw new IllegalStateException("Couldn't find any present database");
@@ -43,13 +44,13 @@ final class DatabaseLoader {
 
         Class<?> databaseImplClass;
         boolean hasAsync;
-        List<Function<Database, IRepository<?>>> repositoryCreators;
+        List<BiFunction<Database, TypeCodecRegistry, IRepository<?>>> repositoryCreators;
         Method createEntitiesMethod;
         try {
             databaseImplClass = Class.forName(database.getClass().getName() + "Generated");
 
             hasAsync = access(databaseImplClass.getDeclaredField("HAS_ASYNC")).getBoolean(null);
-            repositoryCreators = (List<Function<Database, IRepository<?>>>)
+            repositoryCreators = (List<BiFunction<Database, TypeCodecRegistry, IRepository<?>>>)
                     access(databaseImplClass.getDeclaredField("REPOSITORIES")).get(null);
             createEntitiesMethod = access(databaseImplClass.getDeclaredMethod("createEntities", database.getClass()));
         } catch (ClassNotFoundException exception) {
@@ -72,7 +73,7 @@ final class DatabaseLoader {
 
         var repositories = new ArrayList<IRepository<?>>();
         for (var repositoryCreator : repositoryCreators) {
-            repositories.add(repositoryCreator.apply(database));
+            repositories.add(repositoryCreator.apply(database, registry));
         }
 
         return new StartResult(database, repositories);

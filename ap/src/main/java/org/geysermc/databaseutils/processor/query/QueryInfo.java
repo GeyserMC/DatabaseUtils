@@ -25,8 +25,10 @@
 package org.geysermc.databaseutils.processor.query;
 
 import java.util.List;
+import java.util.stream.Stream;
 import org.geysermc.databaseutils.processor.info.ColumnInfo;
 import org.geysermc.databaseutils.processor.query.section.QuerySection;
+import org.geysermc.databaseutils.processor.query.section.VariableSection;
 
 public record QueryInfo(
         String tableName,
@@ -41,5 +43,16 @@ public record QueryInfo(
             }
         }
         return null;
+    }
+
+    public List<CharSequence> variableNames() {
+        return sections.stream()
+                .flatMap(section -> {
+                    if (section instanceof VariableSection variable) {
+                        return Stream.of(variable.name());
+                    }
+                    return null;
+                })
+                .toList();
     }
 }

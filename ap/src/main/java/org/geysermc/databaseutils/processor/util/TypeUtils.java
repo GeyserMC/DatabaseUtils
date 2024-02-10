@@ -25,6 +25,7 @@
 package org.geysermc.databaseutils.processor.util;
 
 import com.google.auto.common.MoreTypes;
+import java.util.Set;
 import javax.lang.model.element.Name;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeMirror;
@@ -62,5 +63,24 @@ public final class TypeUtils {
 
     public static String packageNameFor(String className) {
         return className.substring(0, className.lastIndexOf('.'));
+    }
+
+    public static boolean needsTypeCodec(Name className) {
+        // See README
+        return Set.of(
+                        Boolean.class,
+                        Byte.class,
+                        Short.class,
+                        Character.class,
+                        Integer.class,
+                        Long.class,
+                        Float.class,
+                        Double.class,
+                        String.class,
+                        Byte[].class)
+                .stream()
+                .filter(clazz -> className.contentEquals(clazz.getCanonicalName()))
+                .findAny()
+                .isEmpty();
     }
 }

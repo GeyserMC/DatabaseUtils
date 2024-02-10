@@ -43,7 +43,7 @@ public final class JdbcTypeMappingRegistry {
         if (mapping != null) {
             return mapping;
         }
-        return MAPPINGS.get(String.class.getCanonicalName());
+        return MAPPINGS.get(Byte[].class.getCanonicalName());
     }
 
     public static String jdbcGetFor(Name typeName, String format) {

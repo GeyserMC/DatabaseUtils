@@ -26,15 +26,19 @@ package org.geysermc.databaseutils;
 
 import java.util.List;
 import java.util.concurrent.ExecutorService;
+import org.geysermc.databaseutils.codec.TypeCodec;
+import org.geysermc.databaseutils.codec.TypeCodecRegistry;
 
 public class DatabaseUtils {
+    private final TypeCodecRegistry registry;
     private final DatabaseConfig config;
     private final ExecutorService executorService;
 
     private Database database = null;
     private List<IRepository<?>> repositories;
 
-    private DatabaseUtils(DatabaseConfig config, ExecutorService executorService) {
+    private DatabaseUtils(TypeCodecRegistry registry, DatabaseConfig config, ExecutorService executorService) {
+        this.registry = registry;
         this.config = config;
         this.executorService = executorService;
     }
@@ -44,7 +48,7 @@ public class DatabaseUtils {
     }
 
     public List<IRepository<?>> start() {
-        var result = new DatabaseLoader().startDatabase(config, executorService);
+        var result = new DatabaseLoader().startDatabase(config, executorService, registry);
         this.database = result.database();
         this.repositories = result.repositories();
         return result.repositories();
@@ -70,6 +74,7 @@ public class DatabaseUtils {
     }
 
     public static class Builder {
+        private TypeCodecRegistry registry = new TypeCodecRegistry();
         private DatabaseConfig config;
         private String uri;
         private String username;
@@ -79,6 +84,20 @@ public class DatabaseUtils {
         private ExecutorService executorService;
 
         private Builder() {}
+
+        public TypeCodecRegistry registry() {
+            return registry;
+        }
+
+        public Builder registry(TypeCodecRegistry registry) {
+            this.registry = registry;
+            return this;
+        }
+
+        public Builder addCodec(TypeCodec<?> codec) {
+            this.registry.addCodec(codec);
+            return this;
+        }
 
         public DatabaseConfig config() {
             return config;
@@ -145,6 +164,7 @@ public class DatabaseUtils {
 
         public DatabaseUtils build() {
             return new DatabaseUtils(
+                    registry,
                     config != null ? config : new DatabaseConfig(uri, username, password, poolName, connectionPoolSize),
                     executorService);
         }

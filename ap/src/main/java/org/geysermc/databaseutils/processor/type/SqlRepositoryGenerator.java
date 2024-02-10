@@ -29,6 +29,7 @@ import static org.geysermc.databaseutils.processor.type.sql.JdbcTypeMappingRegis
 import static org.geysermc.databaseutils.processor.util.StringUtils.repeat;
 
 import com.squareup.javapoet.ClassName;
+import com.squareup.javapoet.CodeBlock;
 import com.squareup.javapoet.MethodSpec;
 import com.zaxxer.hikari.HikariDataSource;
 import java.sql.Connection;
@@ -39,6 +40,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletionException;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.VariableElement;
 import org.geysermc.databaseutils.processor.info.ColumnInfo;
@@ -49,6 +51,7 @@ import org.geysermc.databaseutils.processor.query.section.VariableSection;
 import org.geysermc.databaseutils.processor.query.section.selector.AndSelector;
 import org.geysermc.databaseutils.processor.query.section.selector.OrSelector;
 import org.geysermc.databaseutils.processor.util.InvalidRepositoryException;
+import org.geysermc.databaseutils.processor.util.TypeUtils;
 
 public class SqlRepositoryGenerator extends RepositoryGenerator {
     @Override
@@ -65,7 +68,7 @@ public class SqlRepositoryGenerator extends RepositoryGenerator {
     @Override
     public void addFindBy(QueryInfo info, MethodSpec.Builder spec, boolean async) {
         var query = "select * from %s where %s".formatted(info.tableName(), createWhereFor(info));
-        addActionedData(spec, async, query, info.parameterNames(), "%s", info::columnFor, () -> {
+        addActionedData(spec, async, query, info.variableNames(), info.parameterNames(), null, info::columnFor, () -> {
             spec.beginControlFlow("if (!result.next())");
             spec.addStatement("return null");
             spec.endControlFlow();
@@ -73,11 +76,14 @@ public class SqlRepositoryGenerator extends RepositoryGenerator {
             var arguments = new ArrayList<String>();
             for (ColumnInfo column : info.columns()) {
                 var columnType = ClassName.bestGuess(column.typeName().toString());
-                spec.addStatement(
-                        jdbcGetFor(column.typeName(), "$T _$L = result.%s(%s)"),
-                        columnType,
-                        column.name(),
-                        column.name());
+
+                var getFormat = jdbcGetFor(column.typeName(), "result.%s(%s)");
+                if (TypeUtils.needsTypeCodec(column.typeName())) {
+                    getFormat = CodeBlock.of("this.__$L.decode($L)", column.name(), getFormat)
+                            .toString();
+                }
+
+                spec.addStatement("$T _$L = %s".formatted(getFormat), columnType, column.name(), column.name());
                 arguments.add("_" + column.name());
             }
             spec.addStatement(
@@ -94,8 +100,9 @@ public class SqlRepositoryGenerator extends RepositoryGenerator {
                 spec,
                 async,
                 query,
+                info.variableNames(),
                 info.parameterNames(),
-                "%s",
+                null,
                 info::columnFor,
                 () -> spec.addStatement("return result.next()"));
     }
@@ -103,7 +110,7 @@ public class SqlRepositoryGenerator extends RepositoryGenerator {
     @Override
     public void addDeleteBy(QueryInfo info, MethodSpec.Builder spec, boolean async) {
         var query = "delete from %s where %s".formatted(info.tableName(), createWhereFor(info));
-        addActionedData(spec, async, query, info.parameterNames(), "%s", info::columnFor, null);
+        addActionedData(spec, async, query, info.variableNames(), info.parameterNames(), null, info::columnFor, null);
     }
 
     @Override
@@ -118,9 +125,9 @@ public class SqlRepositoryGenerator extends RepositoryGenerator {
     @Override
     public void addUpdate(EntityInfo info, VariableElement parameter, MethodSpec.Builder spec, boolean async) {
         var query = "update %s set %s where %s".formatted(info.name(), createSetFor(info), createWhereFor(info));
-        var parameters = new ArrayList<>(info.notKeyColumns());
-        parameters.addAll(info.keyColumns());
-        addSimple(info, parameter, query, parameters, spec, async);
+        var variables = new ArrayList<>(info.notKeyColumns());
+        variables.addAll(info.keyColumns());
+        addSimple(info, parameter, query, variables, spec, async);
     }
 
     @Override
@@ -133,21 +140,22 @@ public class SqlRepositoryGenerator extends RepositoryGenerator {
             EntityInfo info,
             VariableElement parameter,
             String query,
-            List<ColumnInfo> parameters,
+            List<ColumnInfo> variables,
             MethodSpec.Builder spec,
             boolean async) {
-        var parameterNames =
-                parameters.stream().map(column -> column.name().toString()).toList();
-        var parameterFormat = parameter.getSimpleName() + ".%s()";
-        addActionedData(spec, async, query, parameterNames, parameterFormat, info::columnFor, null);
+        var variableNames =
+                variables.stream().map(column -> column.name().toString()).toList();
+        var variableFormat = parameter.getSimpleName() + ".%s()";
+        addActionedData(spec, async, query, variableNames, null, variableFormat, info::columnFor, null);
     }
 
     private void addActionedData(
             MethodSpec.Builder spec,
             boolean async,
             String query,
+            List<? extends CharSequence> variableNames,
             List<? extends CharSequence> parameterNames,
-            String parameterFormat,
+            String variableFormat,
             Function<CharSequence, ColumnInfo> columnFor,
             Runnable content) {
         wrapInCompletableFuture(spec, async, () -> {
@@ -155,11 +163,16 @@ public class SqlRepositoryGenerator extends RepositoryGenerator {
             spec.beginControlFlow(
                     "try ($T statement = connection.prepareStatement($S))", PreparedStatement.class, query);
 
-            for (int i = 0; i < parameterNames.size(); i++) {
-                var name = parameterNames.get(i);
+            for (int i = 0; i < variableNames.size(); i++) {
+                var name = variableNames.get(i);
                 var columnType = columnFor.apply(name).typeName();
-                spec.addStatement(
-                        jdbcSetFor(columnType, "statement.%s($L, $L)"), i + 1, parameterFormat.formatted(name));
+                var input = variableFormat != null ? variableFormat.formatted(name) : parameterNames.get(i);
+
+                if (TypeUtils.needsTypeCodec(columnType)) {
+                    input = CodeBlock.of("this.__$L.encode($L)", name, input).toString();
+                }
+
+                spec.addStatement(jdbcSetFor(columnType, "statement.%s($L, $L)"), i + 1, input);
             }
 
             if (content != null) {
@@ -180,22 +193,23 @@ public class SqlRepositoryGenerator extends RepositoryGenerator {
     }
 
     private String createSetFor(EntityInfo info) {
-        return createParametersForColumns(info.notKeyColumns(), ',');
+        return createParametersForColumns(info.notKeyColumns(), null, ',');
     }
 
     private String createWhereFor(EntityInfo info) {
-        return createParametersForColumns(info.keyColumns(), ' ');
+        return createParametersForColumns(info.keyColumns(), () -> AndSelector.INSTANCE, ' ');
     }
 
     private String createWhereFor(QueryInfo info) {
         return createParametersForSections(info.sections(), ' ');
     }
 
-    private String createParametersForColumns(List<ColumnInfo> columns, char separator) {
+    private String createParametersForColumns(
+            List<ColumnInfo> columns, Supplier<QuerySection> sectionSeparator, char separator) {
         var sections = new ArrayList<QuerySection>();
         for (ColumnInfo column : columns) {
-            if (!sections.isEmpty()) {
-                sections.add(AndSelector.INSTANCE);
+            if (!sections.isEmpty() && sectionSeparator != null) {
+                sections.add(sectionSeparator.get());
             }
             sections.add(new VariableSection(column.name()));
         }

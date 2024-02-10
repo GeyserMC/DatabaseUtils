@@ -7,14 +7,16 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.function.Function;
+import java.util.UUID;
+import java.util.function.BiFunction;
 import org.geysermc.databaseutils.IRepository;
+import org.geysermc.databaseutils.codec.TypeCodecRegistry;
 import test.basic.BasicRepositorySqlImpl;
 
 class SqlDatabaseGenerated {
     private static final boolean HAS_ASYNC = true;
 
-    private static final List<Function<SqlDatabase, IRepository<?>>> REPOSITORIES;
+    private static final List<BiFunction<SqlDatabase, TypeCodecRegistry, IRepository<?>>> REPOSITORIES;
 
     static {
         REPOSITORIES = new ArrayList<>();
@@ -28,7 +30,8 @@ class SqlDatabaseGenerated {
                 statement.executeUpdate("CREATE TABLE IF NOT EXISTS hello (" +
                         "a " + SqlTypeMappingRegistry.sqlTypeFor(Integer.class, dialect) + ',' +
                         "b " + SqlTypeMappingRegistry.sqlTypeFor(String.class, dialect) + ',' +
-                        "c " + SqlTypeMappingRegistry.sqlTypeFor(String.class, dialect) +
+                        "c " + SqlTypeMappingRegistry.sqlTypeFor(String.class, dialect) + ',' +
+                        "d " + SqlTypeMappingRegistry.sqlTypeFor(UUID.class, dialect) +
                         ")");
             }
         }

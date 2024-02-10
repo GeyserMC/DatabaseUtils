@@ -24,6 +24,7 @@
  */
 package org.geysermc.databaseutils;
 
+import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import org.geysermc.databaseutils.data.BasicRepository;
@@ -40,12 +41,16 @@ final class SqlTest {
         utils.start();
         var repo = utils.repositoryFor(BasicRepository.class);
 
-        repo.insert(new TestEntity(3, "", "what's up?")).get();
+        var created = new TestEntity(3, "", "what's up?", UUID.randomUUID());
+        System.out.println(created);
+
+        repo.insert(created).get();
 
         var result = repo.findByAAndB(3, "").get();
         System.out.println(result);
 
-        repo.update(new TestEntity(result.a(), result.b(), result.c() + "h")).get();
+        repo.update(new TestEntity(result.a(), result.b(), result.c() + "h", result.d()))
+                .get();
         var original = result;
 
         result = repo.findByAAndB(3, "").get();

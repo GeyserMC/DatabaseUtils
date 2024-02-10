@@ -22,13 +22,35 @@
  * @author GeyserMC
  * @link https://github.com/GeyserMC/DatabaseUtils
  */
-package org.geysermc.databaseutils.data;
+package org.geysermc.databaseutils.codec;
 
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.UUID;
-import org.geysermc.databaseutils.meta.Entity;
-import org.geysermc.databaseutils.meta.Index;
-import org.geysermc.databaseutils.meta.Key;
 
-@Index(columns = {"c"})
-@Entity("hello")
-public record TestEntity(@Key int a, @Key String b, String c, UUID d) {}
+final class UuidCodec implements TypeCodec<UUID> {
+    static final UuidCodec INSTANCE = new UuidCodec();
+
+    private UuidCodec() {}
+
+    @Override
+    public boolean matches(Class<?> type) {
+        return UUID.class == type;
+    }
+
+    @Override
+    public UUID decode(byte[] input) {
+        ByteBuffer buffer = ByteBuffer.wrap(input);
+        return new UUID(buffer.getLong(), buffer.getLong());
+    }
+
+    @Override
+    public byte[] encode(UUID input) {
+        byte[] uuidBytes = new byte[16];
+        ByteBuffer.wrap(uuidBytes)
+                .order(ByteOrder.BIG_ENDIAN)
+                .putLong(input.getMostSignificantBits())
+                .putLong(input.getLeastSignificantBits());
+        return uuidBytes;
+    }
+}

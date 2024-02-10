@@ -182,7 +182,7 @@ public final class RepositoryProcessor extends AbstractProcessor {
 
         var generators = RegisteredGenerators.repositoryGenerators();
         for (var generator : generators) {
-            generator.init(repository);
+            generator.init(repository, entity);
         }
 
         for (Element enclosedElement : repository.getEnclosedElements()) {

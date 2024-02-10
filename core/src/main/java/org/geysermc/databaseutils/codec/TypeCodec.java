@@ -22,13 +22,12 @@
  * @author GeyserMC
  * @link https://github.com/GeyserMC/DatabaseUtils
  */
-package org.geysermc.databaseutils.data;
+package org.geysermc.databaseutils.codec;
 
-import java.util.UUID;
-import org.geysermc.databaseutils.meta.Entity;
-import org.geysermc.databaseutils.meta.Index;
-import org.geysermc.databaseutils.meta.Key;
+public interface TypeCodec<T> {
+    boolean matches(Class<?> type);
 
-@Index(columns = {"c"})
-@Entity("hello")
-public record TestEntity(@Key int a, @Key String b, String c, UUID d) {}
+    T decode(byte[] input);
+
+    byte[] encode(T input);
+}

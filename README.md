@@ -1,3 +1,28 @@
+DatabaseUtils is a library that allows you to write Repository interfaces that support both SQL and No-SQL (MongoDB) databases.
+The implementation of the interface is automatically generated while compiling.
+
+This readme will be expanded in the future with for example code examples,
+currently examples can be found in the tests of the AP module and the tests of the core module. 
+
+# Supported types
+Every database type is responsible for providing support for at least:
+- Boolean
+- Byte
+- Short
+- Char
+- Integer
+- Long
+- Float
+- Double
+- String
+- Byte[]
+
+Using TypeCodecRegistry the supported types can be expanded (each of them will be stored as a byte[]).
+The following types are added out of the box:
+- UUID
+
+# SQL
+
 This project tries to support the following SQL dialects:
 
 - H2

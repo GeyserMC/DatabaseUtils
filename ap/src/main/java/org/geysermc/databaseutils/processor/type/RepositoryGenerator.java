@@ -24,6 +24,7 @@
  */
 package org.geysermc.databaseutils.processor.type;
 
+import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.MethodSpec;
 import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeSpec;
@@ -31,6 +32,9 @@ import java.util.concurrent.CompletableFuture;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
+import org.geysermc.databaseutils.codec.TypeCodec;
+import org.geysermc.databaseutils.codec.TypeCodecRegistry;
+import org.geysermc.databaseutils.processor.info.ColumnInfo;
 import org.geysermc.databaseutils.processor.info.EntityInfo;
 import org.geysermc.databaseutils.processor.query.QueryInfo;
 import org.geysermc.databaseutils.processor.util.TypeUtils;
@@ -39,6 +43,7 @@ public abstract class RepositoryGenerator {
     protected TypeSpec.Builder typeSpec;
     protected boolean hasAsync;
     private String packageName;
+    private EntityInfo entityInfo;
 
     protected abstract String upperCamelCaseDatabaseType();
 
@@ -56,7 +61,7 @@ public abstract class RepositoryGenerator {
 
     public abstract void addDelete(EntityInfo info, VariableElement parameter, MethodSpec.Builder spec, boolean async);
 
-    public void init(TypeElement superType) {
+    public void init(TypeElement superType, EntityInfo entityInfo) {
         if (this.typeSpec != null) {
             throw new IllegalStateException("Cannot reinitialize RepositoryGenerator");
         }
@@ -65,6 +70,7 @@ public abstract class RepositoryGenerator {
         this.typeSpec = TypeSpec.classBuilder(className)
                 .addSuperinterface(ParameterizedTypeName.get(superType.asType()))
                 .addModifiers(Modifier.PUBLIC, Modifier.FINAL);
+        this.entityInfo = entityInfo;
     }
 
     public String packageName() {
@@ -81,8 +87,21 @@ public abstract class RepositoryGenerator {
         var constructor = MethodSpec.constructorBuilder()
                 .addModifiers(Modifier.PUBLIC)
                 .addParameter(databaseClass, "database")
+                .addParameter(TypeCodecRegistry.class, "registry")
                 .addStatement("this.database = database");
         onConstructorBuilder(constructor);
+
+        // pre-fetch TypeCodec
+        for (ColumnInfo column : entityInfo.columns()) {
+            if (!TypeUtils.needsTypeCodec(column.typeName())) {
+                continue;
+            }
+            var typeClassName = ClassName.bestGuess(column.typeName().toString());
+            var fieldType = ParameterizedTypeName.get(ClassName.get(TypeCodec.class), typeClassName);
+            typeSpec.addField(fieldType, "__" + column.name(), Modifier.PRIVATE, Modifier.FINAL);
+            constructor.addStatement("this.__$L = registry.requireCodecFor($T.class)", column.name(), typeClassName);
+        }
+
         typeSpec.addMethod(constructor.build());
         return typeSpec;
     }

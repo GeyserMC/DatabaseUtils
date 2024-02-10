@@ -22,13 +22,42 @@
  * @author GeyserMC
  * @link https://github.com/GeyserMC/DatabaseUtils
  */
-package org.geysermc.databaseutils.data;
+package org.geysermc.databaseutils.codec;
 
-import java.util.UUID;
-import org.geysermc.databaseutils.meta.Entity;
-import org.geysermc.databaseutils.meta.Index;
-import org.geysermc.databaseutils.meta.Key;
+import java.util.ArrayList;
+import java.util.List;
 
-@Index(columns = {"c"})
-@Entity("hello")
-public record TestEntity(@Key int a, @Key String b, String c, UUID d) {}
+public final class TypeCodecRegistry {
+    private final List<TypeCodec<?>> TYPES = new ArrayList<>();
+
+    public TypeCodecRegistry() {
+        TYPES.add(UuidCodec.INSTANCE);
+    }
+
+    public TypeCodecRegistry(TypeCodecRegistry registry) {
+        this();
+        TYPES.addAll(registry.TYPES);
+    }
+
+    public void addCodec(TypeCodec<?> codec) {
+        TYPES.add(codec);
+    }
+
+    public <T> TypeCodec<T> codecFor(Class<T> type) {
+        for (TypeCodec<?> codec : TYPES) {
+            if (codec.matches(type)) {
+                //noinspection unchecked
+                return (TypeCodec<T>) codec;
+            }
+        }
+        return null;
+    }
+
+    public <T> TypeCodec<T> requireCodecFor(Class<T> type) {
+        var codec = codecFor(type);
+        if (codec == null) {
+            throw new IllegalStateException("Was not able to find codec for " + type.getName());
+        }
+        return codec;
+    }
+}
