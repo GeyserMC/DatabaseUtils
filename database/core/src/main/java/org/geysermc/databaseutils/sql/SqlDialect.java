@@ -45,4 +45,12 @@ public enum SqlDialect {
         }
         return null;
     }
+
+    public static SqlDialect requireByName(String dialectName) {
+        var result = byName(dialectName);
+        if (result == null) {
+            throw new IllegalStateException("Could not find dialect for " + dialectName);
+        }
+        return result;
+    }
 }

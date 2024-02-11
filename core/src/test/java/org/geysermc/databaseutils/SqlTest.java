@@ -29,13 +29,14 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import org.geysermc.databaseutils.data.BasicRepository;
 import org.geysermc.databaseutils.data.TestEntity;
+import org.geysermc.databaseutils.sql.SqlDialect;
 import org.junit.jupiter.api.Test;
 
 final class SqlTest {
     @Test
     void hello() throws ExecutionException, InterruptedException {
         var utils = DatabaseUtils.builder()
-                .config(new DatabaseConfig("jdbc:h2:./test", "sa", "", "hello", 2))
+                .config(new DatabaseConfig("jdbc:h2:./test", "sa", "", "hello", 2, SqlDialect.H2))
                 .executorService(Executors.newCachedThreadPool())
                 .build();
         utils.start();
