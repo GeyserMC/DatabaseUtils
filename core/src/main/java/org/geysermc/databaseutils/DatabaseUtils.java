@@ -28,6 +28,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import org.geysermc.databaseutils.codec.TypeCodec;
 import org.geysermc.databaseutils.codec.TypeCodecRegistry;
 import org.geysermc.databaseutils.sql.SqlDialect;
@@ -78,7 +79,7 @@ public class DatabaseUtils {
         private String uri;
         private String username;
         private String password;
-        private String poolName;
+        private String poolName = "database-utils";
         private int connectionPoolSize = 0;
         private SqlDialect dialect;
 
@@ -202,6 +203,11 @@ public class DatabaseUtils {
                         "Cannot use credentialsFile in combination with not using default credentials");
             }
 
+            var service = executorService;
+            if (service == null) {
+                service = Executors.newCachedThreadPool();
+            }
+
             var actual = config;
             if (credentialsFile != null) {
                 actual = new CredentialsFileHandler().handle(dialect, credentialsFile);
@@ -211,7 +217,7 @@ public class DatabaseUtils {
                 actual = new DatabaseConfig(uri, username, password, connectionPoolSize);
             }
 
-            return new DatabaseUtils(new DatabaseContext(actual, poolName, dialect, executorService, registry));
+            return new DatabaseUtils(new DatabaseContext(actual, poolName, dialect, service, registry));
         }
     }
 }

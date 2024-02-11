@@ -37,8 +37,6 @@ final class SqlTest {
     void hello() throws ExecutionException, InterruptedException {
         var utils = DatabaseUtils.builder()
                 .useDefaultCredentials(true)
-                .poolName("test")
-                .connectionPoolSize(2)
                 .dialect(SqlDialect.H2)
                 .executorService(Executors.newCachedThreadPool())
                 .build();
