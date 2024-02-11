@@ -24,11 +24,25 @@
  */
 package org.geysermc.databaseutils.sql;
 
+import java.util.Locale;
+
 public enum SqlDialect {
     H2,
     SQL_SERVER,
     MYSQL,
     ORACLE_DATABASE,
     POSTGRESQL,
-    SQLITE
+    SQLITE;
+
+    private static final SqlDialect[] VALUES = values();
+
+    public static SqlDialect byName(String dialectName) {
+        var normalized = dialectName.replace('-', '_').replace(' ', '_').toUpperCase(Locale.ROOT);
+        for (SqlDialect value : VALUES) {
+            if (value.name().equals(normalized)) {
+                return value;
+            }
+        }
+        return null;
+    }
 }

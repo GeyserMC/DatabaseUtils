@@ -31,11 +31,14 @@ import org.geysermc.databaseutils.Database;
 import org.geysermc.databaseutils.DatabaseConfig;
 
 public final class SqlDatabase extends Database {
+    private SqlDialect dialect;
     private HikariDataSource dataSource;
 
     @Override
     public void start(DatabaseConfig config, ExecutorService service) {
         super.start(config, service);
+        this.dialect = config.dialect();
+
         var hikariConfig = new HikariConfig();
         hikariConfig.setJdbcUrl(config.uri());
         hikariConfig.setUsername(config.username());
@@ -43,7 +46,7 @@ public final class SqlDatabase extends Database {
         hikariConfig.setPoolName(config.poolName());
         hikariConfig.setMaximumPoolSize(config.connectionPoolSize());
 
-        dataSource = new HikariDataSource(hikariConfig);
+        this.dataSource = new HikariDataSource(hikariConfig);
     }
 
     @Override
@@ -52,7 +55,7 @@ public final class SqlDatabase extends Database {
     }
 
     public SqlDialect dialect() {
-        return SqlDialect.H2; // todo
+        return dialect;
     }
 
     public HikariDataSource dataSource() {

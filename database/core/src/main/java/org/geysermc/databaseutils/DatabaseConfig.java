@@ -24,4 +24,7 @@
  */
 package org.geysermc.databaseutils;
 
-public record DatabaseConfig(String uri, String username, String password, String poolName, int connectionPoolSize) {}
+import org.geysermc.databaseutils.sql.SqlDialect;
+
+public record DatabaseConfig(
+        String uri, String username, String password, String poolName, int connectionPoolSize, SqlDialect dialect) {}

@@ -28,6 +28,7 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 import org.geysermc.databaseutils.codec.TypeCodec;
 import org.geysermc.databaseutils.codec.TypeCodecRegistry;
+import org.geysermc.databaseutils.sql.SqlDialect;
 
 public class DatabaseUtils {
     private final TypeCodecRegistry registry;
@@ -81,6 +82,7 @@ public class DatabaseUtils {
         private String password;
         private String poolName;
         private int connectionPoolSize;
+        private SqlDialect dialect;
         private ExecutorService executorService;
 
         private Builder() {}
@@ -153,6 +155,15 @@ public class DatabaseUtils {
             return this;
         }
 
+        public SqlDialect dialect() {
+            return dialect;
+        }
+
+        public Builder dialect(SqlDialect dialect) {
+            this.dialect = dialect;
+            return this;
+        }
+
         public ExecutorService executorService() {
             return executorService;
         }
@@ -165,7 +176,9 @@ public class DatabaseUtils {
         public DatabaseUtils build() {
             return new DatabaseUtils(
                     registry,
-                    config != null ? config : new DatabaseConfig(uri, username, password, poolName, connectionPoolSize),
+                    config != null
+                            ? config
+                            : new DatabaseConfig(uri, username, password, poolName, connectionPoolSize, dialect),
                     executorService);
         }
     }

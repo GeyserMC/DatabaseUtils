@@ -1,5 +1,5 @@
 dependencies {
-    implementation(projects.databaseCore)
+    api(projects.databaseCore)
     api(libs.hikari.cp)
 
     testImplementation(platform("org.junit:junit-bom:5.9.1"))
