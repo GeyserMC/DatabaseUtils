@@ -1,6 +1,5 @@
 dependencies {
     implementation(projects.core)
-    implementation(projects.databaseCore)
 
     implementation(projects.databaseSql)
 

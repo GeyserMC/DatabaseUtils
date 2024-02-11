@@ -24,7 +24,18 @@
  */
 package org.geysermc.databaseutils;
 
-import org.geysermc.databaseutils.sql.SqlDialect;
+import java.util.concurrent.ExecutorService;
 
-public record DatabaseConfig(
-        String uri, String username, String password, String poolName, int connectionPoolSize, SqlDialect dialect) {}
+public abstract class Database {
+    protected ExecutorService service;
+
+    public void start(DatabaseContext context) {
+        this.service = context.service();
+    }
+
+    public abstract void stop();
+
+    public ExecutorService executorService() {
+        return service;
+    }
+}

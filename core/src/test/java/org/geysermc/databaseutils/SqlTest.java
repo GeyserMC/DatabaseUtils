@@ -36,7 +36,10 @@ final class SqlTest {
     @Test
     void hello() throws ExecutionException, InterruptedException {
         var utils = DatabaseUtils.builder()
-                .config(new DatabaseConfig("jdbc:h2:./test", "sa", "", "hello", 2, SqlDialect.H2))
+                .useDefaultCredentials(true)
+                .poolName("test")
+                .connectionPoolSize(2)
+                .dialect(SqlDialect.H2)
                 .executorService(Executors.newCachedThreadPool())
                 .build();
         utils.start();

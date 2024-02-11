@@ -29,14 +29,13 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.ExecutorService;
 import java.util.function.BiFunction;
 import org.checkerframework.checker.nullness.qual.NonNull;
 import org.geysermc.databaseutils.codec.TypeCodecRegistry;
 
 final class DatabaseLoader {
     @SuppressWarnings({"unchecked"})
-    @NonNull StartResult startDatabase(DatabaseConfig config, ExecutorService service, TypeCodecRegistry registry) {
+    @NonNull StartResult startDatabase(DatabaseContext context) {
         var database = DatabaseRegistry.firstPresentDatabase();
         if (database == null) {
             throw new IllegalStateException("Couldn't find any present database");
@@ -59,11 +58,11 @@ final class DatabaseLoader {
             throw new RuntimeException("Something went wrong with the generated database implementation", exception);
         }
 
-        if (hasAsync && service == null) {
+        if (hasAsync && context.service() == null) {
             throw new IllegalStateException("Database has async methods but no ExecutorService was provided!");
         }
 
-        database.start(config, service);
+        database.start(context);
 
         try {
             createEntitiesMethod.invoke(null, database);
@@ -73,7 +72,7 @@ final class DatabaseLoader {
 
         var repositories = new ArrayList<IRepository<?>>();
         for (var repositoryCreator : repositoryCreators) {
-            repositories.add(repositoryCreator.apply(database, registry));
+            repositories.add(repositoryCreator.apply(database, context.registry()));
         }
 
         return new StartResult(database, repositories);

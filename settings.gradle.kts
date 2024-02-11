@@ -16,7 +16,7 @@ dependencyResolutionManagement {
 include(":core")
 include(":ap")
 
-arrayOf("core", "mongo", "sql").forEach {
+arrayOf("mongo", "sql").forEach {
     val id = ":database-$it"
     include(id)
     project(id).projectDir = file("database/$it")

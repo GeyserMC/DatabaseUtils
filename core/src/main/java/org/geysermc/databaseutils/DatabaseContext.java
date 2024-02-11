@@ -25,17 +25,38 @@
 package org.geysermc.databaseutils;
 
 import java.util.concurrent.ExecutorService;
+import org.geysermc.databaseutils.codec.TypeCodecRegistry;
+import org.geysermc.databaseutils.sql.SqlDialect;
 
-public abstract class Database {
-    protected ExecutorService service;
-
-    public void start(DatabaseConfig config, ExecutorService service) {
-        this.service = service;
+public record DatabaseContext(
+        String url,
+        String username,
+        String password,
+        String poolName,
+        int connectionPoolSize,
+        SqlDialect dialect,
+        ExecutorService service,
+        TypeCodecRegistry registry) {
+    public DatabaseContext {
+        if (poolName == null || poolName.isEmpty())
+            throw new IllegalArgumentException("poolName cannot be null or empty");
+        if (dialect == null) throw new IllegalArgumentException("dialect cannot be null");
     }
 
-    public abstract void stop();
-
-    public ExecutorService executorService() {
-        return service;
+    public DatabaseContext(
+            DatabaseConfig config,
+            String poolName,
+            SqlDialect dialect,
+            ExecutorService service,
+            TypeCodecRegistry registry) {
+        this(
+                config.url(),
+                config.username(),
+                config.password(),
+                poolName,
+                config.connectionPoolSize(),
+                dialect,
+                service,
+                registry);
     }
 }

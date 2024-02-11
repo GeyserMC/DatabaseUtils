@@ -1,5 +1,5 @@
 dependencies {
-    implementation(projects.databaseCore)
+    compileOnlyApi(libs.hikari.cp)
     compileOnly(libs.checker.qual)
 
     testImplementation(projects.databaseSql)

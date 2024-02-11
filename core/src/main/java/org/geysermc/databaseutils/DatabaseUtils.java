@@ -24,6 +24,8 @@
  */
 package org.geysermc.databaseutils;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import org.geysermc.databaseutils.codec.TypeCodec;
@@ -31,17 +33,13 @@ import org.geysermc.databaseutils.codec.TypeCodecRegistry;
 import org.geysermc.databaseutils.sql.SqlDialect;
 
 public class DatabaseUtils {
-    private final TypeCodecRegistry registry;
-    private final DatabaseConfig config;
-    private final ExecutorService executorService;
+    private final DatabaseContext context;
 
     private Database database = null;
     private List<IRepository<?>> repositories;
 
-    private DatabaseUtils(TypeCodecRegistry registry, DatabaseConfig config, ExecutorService executorService) {
-        this.registry = registry;
-        this.config = config;
-        this.executorService = executorService;
+    private DatabaseUtils(DatabaseContext context) {
+        this.context = context;
     }
 
     public static Builder builder() {
@@ -49,7 +47,7 @@ public class DatabaseUtils {
     }
 
     public List<IRepository<?>> start() {
-        var result = new DatabaseLoader().startDatabase(config, executorService, registry);
+        var result = new DatabaseLoader().startDatabase(context);
         this.database = result.database();
         this.repositories = result.repositories();
         return result.repositories();
@@ -81,8 +79,12 @@ public class DatabaseUtils {
         private String username;
         private String password;
         private String poolName;
-        private int connectionPoolSize;
+        private int connectionPoolSize = 0;
         private SqlDialect dialect;
+
+        private Path credentialsFile;
+        private boolean useDefaultCredentials = true;
+
         private ExecutorService executorService;
 
         private Builder() {}
@@ -164,6 +166,27 @@ public class DatabaseUtils {
             return this;
         }
 
+        public Path credentialsFile() {
+            return credentialsFile;
+        }
+
+        public Builder credentialsFile(Path credentialsFile) {
+            if (credentialsFile != null && Files.exists(credentialsFile) && !Files.isRegularFile(credentialsFile)) {
+                throw new IllegalArgumentException("credentialsFile has to be a file, not a directory!");
+            }
+            this.credentialsFile = credentialsFile;
+            return this;
+        }
+
+        public boolean useDefaultCredentials() {
+            return useDefaultCredentials;
+        }
+
+        public Builder useDefaultCredentials(boolean useDefaultCredentials) {
+            this.useDefaultCredentials = useDefaultCredentials;
+            return this;
+        }
+
         public ExecutorService executorService() {
             return executorService;
         }
@@ -174,12 +197,21 @@ public class DatabaseUtils {
         }
 
         public DatabaseUtils build() {
-            return new DatabaseUtils(
-                    registry,
-                    config != null
-                            ? config
-                            : new DatabaseConfig(uri, username, password, poolName, connectionPoolSize, dialect),
-                    executorService);
+            if (credentialsFile != null && !useDefaultCredentials) {
+                throw new IllegalStateException(
+                        "Cannot use credentialsFile in combination with not using default credentials");
+            }
+
+            var actual = config;
+            if (credentialsFile != null) {
+                actual = new CredentialsFileHandler().handle(dialect, credentialsFile);
+            } else if (useDefaultCredentials) {
+                actual = new CredentialsFileHandler().handle(dialect, null);
+            } else if (config == null) {
+                actual = new DatabaseConfig(uri, username, password, connectionPoolSize);
+            }
+
+            return new DatabaseUtils(new DatabaseContext(actual, poolName, dialect, executorService, registry));
         }
     }
 }

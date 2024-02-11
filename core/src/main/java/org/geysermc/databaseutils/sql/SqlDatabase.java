@@ -26,25 +26,24 @@ package org.geysermc.databaseutils.sql;
 
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
-import java.util.concurrent.ExecutorService;
 import org.geysermc.databaseutils.Database;
-import org.geysermc.databaseutils.DatabaseConfig;
+import org.geysermc.databaseutils.DatabaseContext;
 
 public final class SqlDatabase extends Database {
     private SqlDialect dialect;
     private HikariDataSource dataSource;
 
     @Override
-    public void start(DatabaseConfig config, ExecutorService service) {
-        super.start(config, service);
-        this.dialect = config.dialect();
+    public void start(DatabaseContext context) {
+        super.start(context);
+        this.dialect = context.dialect();
 
         var hikariConfig = new HikariConfig();
-        hikariConfig.setJdbcUrl(config.uri());
-        hikariConfig.setUsername(config.username());
-        hikariConfig.setPassword(config.password());
-        hikariConfig.setPoolName(config.poolName());
-        hikariConfig.setMaximumPoolSize(config.connectionPoolSize());
+        hikariConfig.setJdbcUrl(context.url());
+        hikariConfig.setUsername(context.username());
+        hikariConfig.setPassword(context.password());
+        hikariConfig.setPoolName(context.poolName());
+        hikariConfig.setMaximumPoolSize(context.connectionPoolSize());
 
         this.dataSource = new HikariDataSource(hikariConfig);
     }
