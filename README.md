@@ -11,6 +11,7 @@ currently examples can be found in the tests of the AP module and the tests of t
   - support adding every variable of the entity as parameter
 - add `save` which either inserts the entity if it's not present or updates the already existing entity
 - implementing MongoDB support
+- adding migrations
 - and plenty more
 
 # Supported types

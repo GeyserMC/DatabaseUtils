@@ -28,6 +28,7 @@ import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import org.geysermc.databaseutils.Database;
 import org.geysermc.databaseutils.DatabaseContext;
+import org.geysermc.databaseutils.util.ClassUtils;
 
 public final class SqlDatabase extends Database {
     private SqlDialect dialect;
@@ -36,7 +37,16 @@ public final class SqlDatabase extends Database {
     @Override
     public void start(DatabaseContext context) {
         super.start(context);
-        this.dialect = context.dialect();
+        this.dialect = context.type().dialect();
+
+        if (dialect == null) {
+            throw new IllegalStateException("The selected type '" + context.type() + "' is not a sql type");
+        }
+
+        // This also loads the driver
+        if (!ClassUtils.isClassPresent(dialect.driverName())) {
+            throw new IllegalStateException("The driver for the selected dialect '" + dialect + "' is not present!");
+        }
 
         var hikariConfig = new HikariConfig();
         hikariConfig.setJdbcUrl(context.url());

@@ -31,10 +31,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Properties;
-import org.geysermc.databaseutils.sql.SqlDialect;
 
 final class CredentialsFileHandler {
-    public DatabaseConfig handle(SqlDialect dialect, Path credentialsFile) {
+    public DatabaseConfig handle(DatabaseWithDialectType dialect, Path credentialsFile) {
         DatabaseConfig config = defaultValuesFor(dialect);
         if (credentialsFile != null) {
             if (Files.exists(credentialsFile)) {
@@ -75,14 +74,15 @@ final class CredentialsFileHandler {
         }
     }
 
-    private DatabaseConfig defaultValuesFor(SqlDialect dialect) {
-        return switch (dialect) {
+    private DatabaseConfig defaultValuesFor(DatabaseWithDialectType type) {
+        return switch (type) {
             case H2 -> configFor("jdbc:h2:./database", "sa");
             case SQL_SERVER -> configFor("jdbc:sqlserver://localhost;encrypt=true;integratedSecurity=true;");
             case MYSQL -> configFor("jdbc:mysql://localhost/database");
             case ORACLE_DATABASE -> configFor("jdbc:oracle:thin:@//localhost/service");
             case POSTGRESQL -> configFor("jdbc:postgresql://localhost/database");
             case SQLITE -> configFor("jdbc:sqlite:./database");
+            case MONGODB -> configFor("mongodb://localhost:27017");
         };
     }
 

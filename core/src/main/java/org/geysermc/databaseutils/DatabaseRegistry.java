@@ -24,21 +24,20 @@
  */
 package org.geysermc.databaseutils;
 
-import java.util.List;
+import java.util.Map;
 import java.util.function.Supplier;
+import org.checkerframework.checker.nullness.qual.NonNull;
+import org.checkerframework.checker.nullness.qual.Nullable;
 import org.geysermc.databaseutils.sql.SqlDatabase;
-import org.geysermc.databaseutils.sql.SqlDatabasePresent;
 
 final class DatabaseRegistry {
-    private static final List<Supplier<Database>> TYPES = List.of(SqlDatabase::new);
-    private static final List<DatabaseTypePresent> TYPE_PRESENT = List.of(new SqlDatabasePresent());
+    private static final Map<DatabaseType, Supplier<Database>> TYPES = Map.of(DatabaseType.SQL, SqlDatabase::new);
 
-    public static Database firstPresentDatabase() {
-        for (int i = 0; i < TYPE_PRESENT.size(); i++) {
-            if (TYPE_PRESENT.get(i).isPresent()) {
-                return TYPES.get(i).get();
-            }
+    public static @Nullable Database databaseFor(@NonNull DatabaseWithDialectType type) {
+        var instanceSupplier = TYPES.get(type.databaseType());
+        if (instanceSupplier == null) {
+            return null;
         }
-        return null;
+        return instanceSupplier.get();
     }
 }

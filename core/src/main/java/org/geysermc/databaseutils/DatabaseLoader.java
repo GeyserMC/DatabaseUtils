@@ -36,9 +36,9 @@ import org.geysermc.databaseutils.codec.TypeCodecRegistry;
 final class DatabaseLoader {
     @SuppressWarnings({"unchecked"})
     @NonNull StartResult startDatabase(DatabaseContext context) {
-        var database = DatabaseRegistry.firstPresentDatabase();
+        var database = DatabaseRegistry.databaseFor(context.type());
         if (database == null) {
-            throw new IllegalStateException("Couldn't find any present database");
+            throw new IllegalStateException("Couldn't find a database manager for " + context.type());
         }
 
         Class<?> databaseImplClass;

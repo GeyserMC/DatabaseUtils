@@ -153,7 +153,7 @@ public final class RepositoryProcessor extends AbstractProcessor {
 
     @Override
     public SourceVersion getSupportedSourceVersion() {
-        return SourceVersion.latestSupported();
+        return SourceVersion.latest();
     }
 
     private void writeGeneratedTypes(List<GeneratedType> generatedTypes) {

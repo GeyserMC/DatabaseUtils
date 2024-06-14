@@ -29,7 +29,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import org.geysermc.databaseutils.data.BasicRepository;
 import org.geysermc.databaseutils.data.TestEntity;
-import org.geysermc.databaseutils.sql.SqlDialect;
 import org.junit.jupiter.api.Test;
 
 final class SqlTest {
@@ -37,7 +36,7 @@ final class SqlTest {
     void hello() throws ExecutionException, InterruptedException {
         var utils = DatabaseUtils.builder()
                 .useDefaultCredentials(true)
-                .dialect(SqlDialect.H2)
+                .type(DatabaseWithDialectType.H2)
                 .executorService(Executors.newCachedThreadPool())
                 .build();
         utils.start();

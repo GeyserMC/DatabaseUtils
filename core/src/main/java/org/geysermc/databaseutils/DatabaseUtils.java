@@ -31,7 +31,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import org.geysermc.databaseutils.codec.TypeCodec;
 import org.geysermc.databaseutils.codec.TypeCodecRegistry;
-import org.geysermc.databaseutils.sql.SqlDialect;
 
 public class DatabaseUtils {
     private final DatabaseContext context;
@@ -81,7 +80,8 @@ public class DatabaseUtils {
         private String password;
         private String poolName = "database-utils";
         private int connectionPoolSize = 0;
-        private SqlDialect dialect;
+
+        private DatabaseWithDialectType type;
 
         private Path credentialsFile;
         private boolean useDefaultCredentials = true;
@@ -158,12 +158,12 @@ public class DatabaseUtils {
             return this;
         }
 
-        public SqlDialect dialect() {
-            return dialect;
+        public DatabaseWithDialectType type() {
+            return type;
         }
 
-        public Builder dialect(SqlDialect dialect) {
-            this.dialect = dialect;
+        public Builder type(DatabaseWithDialectType type) {
+            this.type = type;
             return this;
         }
 
@@ -210,14 +210,14 @@ public class DatabaseUtils {
 
             var actual = config;
             if (credentialsFile != null) {
-                actual = new CredentialsFileHandler().handle(dialect, credentialsFile);
+                actual = new CredentialsFileHandler().handle(type, credentialsFile);
             } else if (useDefaultCredentials) {
-                actual = new CredentialsFileHandler().handle(dialect, null);
+                actual = new CredentialsFileHandler().handle(type, null);
             } else if (config == null) {
                 actual = new DatabaseConfig(uri, username, password, connectionPoolSize);
             }
 
-            return new DatabaseUtils(new DatabaseContext(actual, poolName, dialect, service, registry));
+            return new DatabaseUtils(new DatabaseContext(actual, poolName, type, service, registry));
         }
     }
 }

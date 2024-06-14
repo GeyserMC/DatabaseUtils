@@ -26,7 +26,6 @@ package org.geysermc.databaseutils;
 
 import java.util.concurrent.ExecutorService;
 import org.geysermc.databaseutils.codec.TypeCodecRegistry;
-import org.geysermc.databaseutils.sql.SqlDialect;
 
 public record DatabaseContext(
         String url,
@@ -34,19 +33,20 @@ public record DatabaseContext(
         String password,
         String poolName,
         int connectionPoolSize,
-        SqlDialect dialect,
+        DatabaseWithDialectType type,
         ExecutorService service,
         TypeCodecRegistry registry) {
+
     public DatabaseContext {
         if (poolName == null || poolName.isEmpty())
             throw new IllegalArgumentException("poolName cannot be null or empty");
-        if (dialect == null) throw new IllegalArgumentException("dialect cannot be null");
+        if (type == null) throw new IllegalArgumentException("A database type has to be provided");
     }
 
     public DatabaseContext(
             DatabaseConfig config,
             String poolName,
-            SqlDialect dialect,
+            DatabaseWithDialectType type,
             ExecutorService service,
             TypeCodecRegistry registry) {
         this(
@@ -55,7 +55,7 @@ public record DatabaseContext(
                 config.password(),
                 poolName,
                 config.connectionPoolSize(),
-                dialect,
+                type,
                 service,
                 registry);
     }

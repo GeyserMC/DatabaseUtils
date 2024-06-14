@@ -24,33 +24,21 @@
  */
 package org.geysermc.databaseutils.sql;
 
-import java.util.Locale;
-
 public enum SqlDialect {
-    H2,
-    SQL_SERVER,
-    MYSQL,
-    ORACLE_DATABASE,
-    POSTGRESQL,
-    SQLITE;
+    H2("org.h2.Driver"),
+    SQL_SERVER("com.microsoft.sqlserver.jdbc.SQLServerDriver"),
+    MYSQL("org.mariadb.jdbc.Driver"),
+    ORACLE_DATABASE("oracle.jdbc.driver.OracleDriver"),
+    POSTGRESQL("org.postgresql.Driver"),
+    SQLITE("org.sqlite.JDBC"),;
 
-    private static final SqlDialect[] VALUES = values();
+    private final String driverName;
 
-    public static SqlDialect byName(String dialectName) {
-        var normalized = dialectName.replace('-', '_').replace(' ', '_').toUpperCase(Locale.ROOT);
-        for (SqlDialect value : VALUES) {
-            if (value.name().equals(normalized)) {
-                return value;
-            }
-        }
-        return null;
+    SqlDialect(String driverName) {
+        this.driverName = driverName;
     }
 
-    public static SqlDialect requireByName(String dialectName) {
-        var result = byName(dialectName);
-        if (result == null) {
-            throw new IllegalStateException("Could not find dialect for " + dialectName);
-        }
-        return result;
+    public String driverName() {
+        return driverName;
     }
 }
