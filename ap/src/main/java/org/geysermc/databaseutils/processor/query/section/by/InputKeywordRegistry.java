@@ -22,9 +22,33 @@
  * @author GeyserMC
  * @link https://github.com/GeyserMC/DatabaseUtils
  */
-package org.geysermc.databaseutils;
+package org.geysermc.databaseutils.processor.query.section.by;
 
-public enum DatabaseType {
-    SQL,
-    MONGODB
+import java.util.HashMap;
+import java.util.Map;
+import java.util.function.Supplier;
+import org.checkerframework.checker.nullness.qual.NonNull;
+import org.checkerframework.checker.nullness.qual.Nullable;
+import org.geysermc.databaseutils.processor.query.section.by.keyword.EqualsKeyword;
+import org.geysermc.databaseutils.processor.query.section.by.keyword.LessThanKeyword;
+
+public class InputKeywordRegistry {
+    private static final Map<String, Supplier<MultiInputKeyword>> REGISTRY = new HashMap<>();
+
+    public static @Nullable MultiInputKeyword findByName(String keyword) {
+        var supplier = REGISTRY.get(keyword);
+        return supplier != null ? supplier.get() : null;
+    }
+
+    private static void register(Supplier<MultiInputKeyword> keywordSupplier) {
+        var instance = keywordSupplier.get();
+        for (@NonNull String name : instance.names()) {
+            REGISTRY.put(name, keywordSupplier);
+        }
+    }
+
+    static {
+        register(EqualsKeyword::new);
+        register(LessThanKeyword::new);
+    }
 }

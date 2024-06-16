@@ -24,6 +24,7 @@
  */
 package org.geysermc.databaseutils.processor.info;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -50,5 +51,12 @@ public record EntityInfo(
         return columns().stream()
                 .filter(column -> !keys.contains(column.name()))
                 .toList();
+    }
+
+    public List<ColumnInfo> notKeyFirstColumns() {
+        var combined = new ArrayList<ColumnInfo>();
+        combined.addAll(notKeyColumns());
+        combined.addAll(keyColumns());
+        return combined;
     }
 }

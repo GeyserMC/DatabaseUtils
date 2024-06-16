@@ -24,37 +24,97 @@
  */
 package org.geysermc.databaseutils.processor.action;
 
+import com.squareup.javapoet.MethodSpec;
+import java.util.Collection;
 import java.util.List;
-import java.util.regex.Pattern;
-import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
-import javax.lang.model.util.Types;
-import org.geysermc.databaseutils.processor.info.EntityInfo;
+import org.geysermc.databaseutils.processor.query.QueryInfo;
 import org.geysermc.databaseutils.processor.type.RepositoryGenerator;
+import org.geysermc.databaseutils.processor.util.InvalidRepositoryException;
+import org.geysermc.databaseutils.processor.util.TypeUtils;
 
 public abstract class Action {
     private final String actionType;
-    private final Pattern actionPattern;
+    private final boolean supportsFilter;
 
-    protected Action(String actionType, String actionRegex) {
+    protected Action(String actionType) {
+        this(actionType, true);
+    }
+
+    protected Action(String actionType, boolean supportsFilter) {
         this.actionType = actionType;
-        this.actionPattern = Pattern.compile(actionRegex);
+        this.supportsFilter = supportsFilter;
     }
 
     public String actionType() {
         return actionType;
     }
 
-    public Pattern actionPattern() {
-        return actionPattern;
+    public boolean supportsFilter() {
+        return supportsFilter;
     }
 
-    public abstract void addTo(
-            List<RepositoryGenerator> generators,
-            String fullName,
-            ExecutableElement element,
+    protected abstract void addToSingle(
+            RepositoryGenerator generator,
+            QueryInfo info,
+            MethodSpec.Builder spec,
             TypeElement returnType,
-            EntityInfo info,
-            Types typeUtils,
             boolean async);
+
+    protected boolean validateSingle(QueryInfo info, TypeElement returnType, TypeUtils typeUtils) {
+        return TypeUtils.isType(Void.class, returnType) || TypeUtils.isWholeNumberType(returnType);
+    }
+
+    protected boolean validateCollection(QueryInfo info, TypeElement elementType, TypeUtils typeUtils) {
+        return false;
+    }
+
+    protected boolean validateEither(QueryInfo info, TypeElement elementType, boolean collection, TypeUtils typeUtils) {
+        return false;
+    }
+
+    protected void validate(QueryInfo info, TypeElement returnType, TypeUtils typeUtils) {
+        var elementType = returnType;
+        if (typeUtils.isAssignable(Collection.class, returnType.asType())) {
+            elementType = (TypeElement) returnType.getTypeParameters().get(0);
+
+            if (!supportsFilter) {
+                throw new InvalidRepositoryException("%s does not support a By section", actionType);
+            }
+
+            if (validateCollection(info, elementType, typeUtils)
+                    || validateEither(info, elementType, true, typeUtils)) {
+                return;
+            }
+        } else {
+            if (validateEither(info, elementType, false, typeUtils)) {
+                return;
+            }
+            if (validateSingle(info, returnType, typeUtils)) {
+                return;
+            }
+        }
+
+        if (!typeUtils.isAssignable(info.entityType(), elementType.asType())) {
+            throw new InvalidRepositoryException(
+                    "Unsupported return type %s for %s",
+                    returnType.getSimpleName(), info.element().getSimpleName());
+        }
+    }
+
+    public void addTo(
+            List<RepositoryGenerator> generators,
+            QueryInfo info,
+            TypeElement returnType,
+            boolean async,
+            TypeUtils typeUtils) {
+        if (!info.hasBySection() && info.element().getParameters().size() != 1) {
+            throw new InvalidRepositoryException("Expected one parameter with type %s", info.entityType());
+        }
+        validate(info, returnType, typeUtils);
+
+        for (RepositoryGenerator generator : generators) {
+            addToSingle(generator, info, MethodSpec.overriding(info.element()), returnType, async);
+        }
+    }
 }

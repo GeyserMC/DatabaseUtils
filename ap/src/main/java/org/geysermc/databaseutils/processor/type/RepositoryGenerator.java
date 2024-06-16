@@ -31,7 +31,6 @@ import com.squareup.javapoet.TypeSpec;
 import java.util.concurrent.CompletableFuture;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
-import javax.lang.model.element.VariableElement;
 import org.geysermc.databaseutils.codec.TypeCodec;
 import org.geysermc.databaseutils.codec.TypeCodecRegistry;
 import org.geysermc.databaseutils.processor.info.ColumnInfo;
@@ -49,20 +48,15 @@ public abstract class RepositoryGenerator {
 
     protected void onConstructorBuilder(MethodSpec.Builder builder) {}
 
-    public abstract void addFindBy(QueryInfo info, MethodSpec.Builder spec, boolean async);
+    public abstract void addFind(QueryInfo info, MethodSpec.Builder spec, TypeElement returnType, boolean async);
 
-    public abstract void addExistsBy(QueryInfo info, MethodSpec.Builder spec, boolean async);
+    public abstract void addExists(QueryInfo info, MethodSpec.Builder spec, TypeElement returnType, boolean async);
 
-    public abstract void addDeleteBy(QueryInfo info, MethodSpec.Builder spec, boolean async);
+    public abstract void addInsert(QueryInfo info, MethodSpec.Builder spec, TypeElement returnType, boolean async);
 
-    public abstract void addInsert(
-            EntityInfo info, TypeElement returnType, VariableElement parameter, MethodSpec.Builder spec, boolean async);
+    public abstract void addUpdate(QueryInfo info, MethodSpec.Builder spec, TypeElement returnType, boolean async);
 
-    public abstract void addUpdate(
-            EntityInfo info, TypeElement returnType, VariableElement parameter, MethodSpec.Builder spec, boolean async);
-
-    public abstract void addDelete(
-            EntityInfo info, TypeElement returnType, VariableElement parameter, MethodSpec.Builder spec, boolean async);
+    public abstract void addDelete(QueryInfo info, MethodSpec.Builder spec, TypeElement returnType, boolean async);
 
     public void init(TypeElement superType, EntityInfo entityInfo) {
         if (this.typeSpec != null) {

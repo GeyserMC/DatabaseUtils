@@ -22,9 +22,6 @@
  * @author GeyserMC
  * @link https://github.com/GeyserMC/DatabaseUtils
  */
-package org.geysermc.databaseutils;
+package org.geysermc.databaseutils.processor.query.section.factor;
 
-public enum DatabaseType {
-    SQL,
-    MONGODB
-}
+public interface Factor {}

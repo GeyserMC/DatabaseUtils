@@ -22,19 +22,11 @@
  * @author GeyserMC
  * @link https://github.com/GeyserMC/DatabaseUtils
  */
-package org.geysermc.databaseutils.processor.query.section;
+package org.geysermc.databaseutils.processor.query;
 
-import java.util.Map;
-import org.geysermc.databaseutils.processor.query.section.selector.AndSelector;
-import org.geysermc.databaseutils.processor.query.section.selector.OrSelector;
+import org.checkerframework.checker.nullness.qual.Nullable;
+import org.geysermc.databaseutils.processor.query.section.BySection;
+import org.geysermc.databaseutils.processor.query.section.order.OrderBySection;
 
-public final class QuerySectionRegistry {
-    private static final Map<String, QuerySection> SELECTORS =
-            Map.of("And", AndSelector.INSTANCE, "Or", OrSelector.INSTANCE);
-
-    private QuerySectionRegistry() {}
-
-    public static QuerySection selectorFor(String name) {
-        return SELECTORS.get(name);
-    }
-}
+public record KeywordsReadResult(
+        String actionName, boolean distinct, @Nullable BySection bySection, @Nullable OrderBySection orderBySection) {}

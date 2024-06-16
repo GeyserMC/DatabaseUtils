@@ -22,9 +22,20 @@
  * @author GeyserMC
  * @link https://github.com/GeyserMC/DatabaseUtils
  */
-package org.geysermc.databaseutils;
+package org.geysermc.databaseutils.processor.query.section;
 
-public enum DatabaseType {
-    SQL,
-    MONGODB
+import java.util.Map;
+import org.geysermc.databaseutils.processor.query.section.factor.AndFactor;
+import org.geysermc.databaseutils.processor.query.section.factor.Factor;
+import org.geysermc.databaseutils.processor.query.section.factor.OrFactor;
+
+public final class FactorRegistry {
+    private static final Map<String, Factor> FACTORS =
+            Map.of(AndFactor.NAME, AndFactor.INSTANCE, OrFactor.NAME, OrFactor.INSTANCE);
+
+    private FactorRegistry() {}
+
+    public static Factor factorFor(final String name) {
+        return FACTORS.get(name);
+    }
 }

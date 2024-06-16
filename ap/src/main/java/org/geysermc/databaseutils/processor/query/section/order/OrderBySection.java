@@ -22,9 +22,10 @@
  * @author GeyserMC
  * @link https://github.com/GeyserMC/DatabaseUtils
  */
-package org.geysermc.databaseutils;
+package org.geysermc.databaseutils.processor.query.section.order;
 
-public enum DatabaseType {
-    SQL,
-    MONGODB
-}
+import java.util.List;
+import org.checkerframework.checker.nullness.qual.NonNull;
+import org.geysermc.databaseutils.processor.query.section.factor.Factor;
+
+public record OrderBySection(@NonNull List<@NonNull Factor> factors) {}

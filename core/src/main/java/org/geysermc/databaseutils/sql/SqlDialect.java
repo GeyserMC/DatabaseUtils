@@ -30,7 +30,7 @@ public enum SqlDialect {
     MYSQL("org.mariadb.jdbc.Driver"),
     ORACLE_DATABASE("oracle.jdbc.driver.OracleDriver"),
     POSTGRESQL("org.postgresql.Driver"),
-    SQLITE("org.sqlite.JDBC"),;
+    SQLITE("org.sqlite.JDBC");
 
     private final String driverName;
 

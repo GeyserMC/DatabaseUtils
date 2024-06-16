@@ -22,33 +22,20 @@
  * @author GeyserMC
  * @link https://github.com/GeyserMC/DatabaseUtils
  */
-package org.geysermc.databaseutils.processor.action;
+package org.geysermc.databaseutils.processor.query.section.by;
 
-import com.squareup.javapoet.MethodSpec;
-import javax.lang.model.element.ExecutableElement;
-import javax.lang.model.element.TypeElement;
-import org.geysermc.databaseutils.processor.info.EntityInfo;
-import org.geysermc.databaseutils.processor.query.QueryInfo;
-import org.geysermc.databaseutils.processor.type.RepositoryGenerator;
-import org.geysermc.databaseutils.processor.util.InvalidRepositoryException;
-import org.geysermc.databaseutils.processor.util.TypeUtils;
+import java.util.List;
 
-final class FindByAction extends ByAction {
-    FindByAction() {
-        super("findBy");
-    }
+/**
+ * A keyword that only supports a single input
+ */
+public abstract class SingleInputKeyword extends MultiInputKeyword {
+    /**
+     * Returns the types the input supports
+     */
+    public abstract List<Class<?>> acceptedInput();
 
-    @Override
-    protected void validate(ExecutableElement element, TypeElement returnType, EntityInfo info) {
-        if (!TypeUtils.isTypeOf(info.className(), returnType)) {
-            throw new InvalidRepositoryException(
-                    "Expected %s as return type for %s, got %s", info.className(), element.getSimpleName(), returnType);
-        }
-    }
-
-    @Override
-    public void addToSingle(
-            RepositoryGenerator generator, QueryInfo queryInfo, MethodSpec.Builder spec, boolean async) {
-        generator.addFindBy(queryInfo, spec, async);
+    public List<List<Class<?>>> acceptedInputs() {
+        return List.of(acceptedInput());
     }
 }

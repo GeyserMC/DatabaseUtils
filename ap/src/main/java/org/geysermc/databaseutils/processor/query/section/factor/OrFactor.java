@@ -22,33 +22,11 @@
  * @author GeyserMC
  * @link https://github.com/GeyserMC/DatabaseUtils
  */
-package org.geysermc.databaseutils.processor.action;
+package org.geysermc.databaseutils.processor.query.section.factor;
 
-import com.squareup.javapoet.MethodSpec;
-import javax.lang.model.element.ExecutableElement;
-import javax.lang.model.element.TypeElement;
-import org.geysermc.databaseutils.processor.info.EntityInfo;
-import org.geysermc.databaseutils.processor.query.QueryInfo;
-import org.geysermc.databaseutils.processor.type.RepositoryGenerator;
-import org.geysermc.databaseutils.processor.util.InvalidRepositoryException;
-import org.geysermc.databaseutils.processor.util.TypeUtils;
+public final class OrFactor implements Factor {
+    public static final OrFactor INSTANCE = new OrFactor();
+    public static final String NAME = "Or";
 
-final class DeleteByAction extends ByAction {
-    DeleteByAction() {
-        super("deleteBy");
-    }
-
-    @Override
-    protected void validate(ExecutableElement element, TypeElement returnType, EntityInfo info) {
-        if (!TypeUtils.isTypeOf(Void.class, returnType)) {
-            throw new InvalidRepositoryException(
-                    "Expected Void as return type for %s, got %s", element.getSimpleName(), returnType);
-        }
-    }
-
-    @Override
-    protected void addToSingle(
-            RepositoryGenerator generator, QueryInfo queryInfo, MethodSpec.Builder spec, boolean async) {
-        generator.addDeleteBy(queryInfo, spec, async);
-    }
+    private OrFactor() {}
 }

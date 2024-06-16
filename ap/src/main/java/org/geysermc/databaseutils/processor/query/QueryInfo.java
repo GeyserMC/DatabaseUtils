@@ -26,18 +26,28 @@ package org.geysermc.databaseutils.processor.query;
 
 import java.util.List;
 import java.util.stream.Stream;
+import javax.lang.model.element.ExecutableElement;
+import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.geysermc.databaseutils.processor.info.ColumnInfo;
-import org.geysermc.databaseutils.processor.query.section.QuerySection;
-import org.geysermc.databaseutils.processor.query.section.VariableSection;
+import org.geysermc.databaseutils.processor.info.EntityInfo;
+import org.geysermc.databaseutils.processor.query.section.factor.Factor;
+import org.geysermc.databaseutils.processor.query.section.factor.VariableByFactor;
 
-public record QueryInfo(
-        String tableName,
-        CharSequence entityType,
-        List<ColumnInfo> columns,
-        List<QuerySection> sections,
-        List<? extends CharSequence> parameterNames) {
+public record QueryInfo(EntityInfo entityInfo, KeywordsReadResult result, ExecutableElement element) {
+    public String tableName() {
+        return entityInfo.name();
+    }
+
+    public CharSequence entityType() {
+        return entityInfo.className();
+    }
+
+    public List<ColumnInfo> columns() {
+        return entityInfo.columns();
+    }
+
     public ColumnInfo columnFor(CharSequence columnName) {
-        for (ColumnInfo column : columns) {
+        for (ColumnInfo column : columns()) {
             if (column.name().contentEquals(columnName)) {
                 return column;
             }
@@ -45,14 +55,34 @@ public record QueryInfo(
         return null;
     }
 
-    public List<CharSequence> variableNames() {
-        return sections.stream()
+    public boolean hasBySection() {
+        return result.bySection() != null;
+    }
+
+    public @MonotonicNonNull List<Factor> bySectionFactors() {
+        return result.bySection() != null ? result.bySection().factors() : null;
+    }
+
+    public void requireBySection() {
+        if (bySectionFactors() == null || bySectionFactors().isEmpty()) {
+            throw new IllegalStateException("This query requires a By section");
+        }
+    }
+
+    public List<VariableByFactor> byVariables() {
+        requireBySection();
+
+        return bySectionFactors().stream()
                 .flatMap(section -> {
-                    if (section instanceof VariableSection variable) {
-                        return Stream.of(variable.name());
+                    if (section instanceof VariableByFactor variable) {
+                        return Stream.of(variable);
                     }
                     return null;
                 })
                 .toList();
+    }
+
+    public CharSequence parameterName(int index) {
+        return element.getParameters().get(index).getSimpleName();
     }
 }

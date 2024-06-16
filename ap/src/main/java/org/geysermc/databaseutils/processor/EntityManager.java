@@ -25,7 +25,6 @@
 package org.geysermc.databaseutils.processor;
 
 import static org.geysermc.databaseutils.processor.util.AnnotationUtils.hasAnnotation;
-import static org.geysermc.databaseutils.processor.util.TypeUtils.toBoxedTypeElement;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -39,18 +38,18 @@ import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
-import javax.lang.model.util.Types;
 import org.geysermc.databaseutils.meta.Entity;
 import org.geysermc.databaseutils.meta.Key;
 import org.geysermc.databaseutils.processor.info.ColumnInfo;
 import org.geysermc.databaseutils.processor.info.EntityInfo;
 import org.geysermc.databaseutils.processor.info.IndexInfo;
+import org.geysermc.databaseutils.processor.util.TypeUtils;
 
 final class EntityManager {
     private final Map<CharSequence, EntityInfo> entityInfoByClassName = new HashMap<>();
-    private final Types typeUtils;
+    private final TypeUtils typeUtils;
 
-    EntityManager(final Types typeUtils) {
+    EntityManager(final TypeUtils typeUtils) {
         this.typeUtils = Objects.requireNonNull(typeUtils);
     }
 
@@ -100,7 +99,7 @@ final class EntityManager {
                 continue;
             }
 
-            TypeElement typeElement = toBoxedTypeElement(field.asType(), typeUtils);
+            TypeElement typeElement = typeUtils.toBoxedTypeElement(field.asType());
             columns.add(new ColumnInfo(field.getSimpleName(), typeElement.getQualifiedName()));
 
             if (hasAnnotation(field, Key.class)) {
@@ -122,8 +121,8 @@ final class EntityManager {
             }
 
             for (int i = 0; i < parameters.size(); i++) {
-                var parameterType = toBoxedTypeElement(parameters.get(i).asType(), typeUtils)
-                        .getQualifiedName();
+                var parameterType =
+                        typeUtils.toBoxedTypeElement(parameters.get(i).asType()).getQualifiedName();
                 if (!columns.get(i).typeName().equals(parameterType)) {
                     continue constructors;
                 }

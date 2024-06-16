@@ -22,6 +22,14 @@
  * @author GeyserMC
  * @link https://github.com/GeyserMC/DatabaseUtils
  */
-package org.geysermc.databaseutils.processor.query.section;
+package org.geysermc.databaseutils.processor.query.section.factor;
 
-public record VariableSection(CharSequence name) implements QuerySection {}
+import org.checkerframework.checker.nullness.qual.NonNull;
+import org.geysermc.databaseutils.processor.query.section.order.OrderDirection;
+
+public record VariableOrderByFactor(CharSequence name, OrderDirection direction) implements Factor {
+    public VariableOrderByFactor(@NonNull CharSequence name, @NonNull OrderDirection direction) {
+        this.name = name;
+        this.direction = direction;
+    }
+}

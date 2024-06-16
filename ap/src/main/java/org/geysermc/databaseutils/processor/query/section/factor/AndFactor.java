@@ -22,12 +22,11 @@
  * @author GeyserMC
  * @link https://github.com/GeyserMC/DatabaseUtils
  */
-package org.geysermc.databaseutils.processor.query.section.selector;
+package org.geysermc.databaseutils.processor.query.section.factor;
 
-import org.geysermc.databaseutils.processor.query.section.QuerySection;
+public final class AndFactor implements Factor {
+    public static final AndFactor INSTANCE = new AndFactor();
+    public static final String NAME = "And";
 
-public final class OrSelector implements QuerySection {
-    public static final OrSelector INSTANCE = new OrSelector();
-
-    private OrSelector() {}
+    private AndFactor() {}
 }

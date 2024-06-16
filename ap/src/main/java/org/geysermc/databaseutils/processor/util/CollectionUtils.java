@@ -22,33 +22,16 @@
  * @author GeyserMC
  * @link https://github.com/GeyserMC/DatabaseUtils
  */
-package org.geysermc.databaseutils.processor.action;
+package org.geysermc.databaseutils.processor.util;
 
-import com.squareup.javapoet.MethodSpec;
-import javax.lang.model.element.ExecutableElement;
-import javax.lang.model.element.TypeElement;
-import org.geysermc.databaseutils.processor.info.EntityInfo;
-import org.geysermc.databaseutils.processor.query.QueryInfo;
-import org.geysermc.databaseutils.processor.type.RepositoryGenerator;
-import org.geysermc.databaseutils.processor.util.InvalidRepositoryException;
-import org.geysermc.databaseutils.processor.util.TypeUtils;
+import java.util.Collection;
 
-final class ExistsByAction extends ByAction {
-    ExistsByAction() {
-        super("existsBy");
+public class CollectionUtils {
+    public static String join(Collection<?> items, int offset) {
+        return join(items.stream().skip(offset).toList());
     }
 
-    @Override
-    protected void validate(ExecutableElement element, TypeElement returnType, EntityInfo info) {
-        if (!TypeUtils.isTypeOf(Boolean.class, returnType)) {
-            throw new InvalidRepositoryException(
-                    "Expected Boolean as return type for %s, got %s", element.getSimpleName(), returnType);
-        }
-    }
-
-    @Override
-    public void addToSingle(
-            RepositoryGenerator generator, QueryInfo queryInfo, MethodSpec.Builder spec, boolean async) {
-        generator.addExistsBy(queryInfo, spec, async);
+    public static String join(Collection<?> items) {
+        return String.join(", ", items.stream().map(Object::toString).toList());
     }
 }

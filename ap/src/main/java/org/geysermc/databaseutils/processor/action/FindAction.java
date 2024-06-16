@@ -24,23 +24,35 @@
  */
 package org.geysermc.databaseutils.processor.action;
 
-import java.util.Set;
-import org.geysermc.databaseutils.processor.query.KeywordsReadResult;
+import com.squareup.javapoet.MethodSpec;
+import javax.lang.model.element.TypeElement;
+import org.geysermc.databaseutils.processor.query.QueryInfo;
+import org.geysermc.databaseutils.processor.type.RepositoryGenerator;
+import org.geysermc.databaseutils.processor.util.InvalidRepositoryException;
+import org.geysermc.databaseutils.processor.util.TypeUtils;
 
-public final class ActionRegistry {
-    private static final Set<Action> REGISTERED_ACTIONS =
-            Set.of(new FindAction(), new ExistsAction(), new InsertAction(), new UpdateAction(), new DeleteAction());
+final class FindAction extends Action {
+    FindAction() {
+        super("find");
+    }
 
-    public static Action actionMatching(KeywordsReadResult result) {
-        for (Action action : REGISTERED_ACTIONS) {
-            var hasFilter = result.bySection() != null;
-            if (result.actionName().equals(action.actionType())) {
-                if (hasFilter && !action.supportsFilter()) {
-                    continue;
-                }
-                return action;
-            }
+    @Override
+    protected boolean validateEither(QueryInfo info, TypeElement returnType, boolean collection, TypeUtils typeUtils) {
+        if (!TypeUtils.isType(info.entityType(), returnType)) {
+            throw new InvalidRepositoryException(
+                    "Expected %s as return type for %s, got %s",
+                    info.entityType(), info.element().getSimpleName(), returnType);
         }
-        return null;
+        return true;
+    }
+
+    @Override
+    public void addToSingle(
+            RepositoryGenerator generator,
+            QueryInfo info,
+            MethodSpec.Builder spec,
+            TypeElement returnType,
+            boolean async) {
+        generator.addFind(info, spec, returnType, async);
     }
 }

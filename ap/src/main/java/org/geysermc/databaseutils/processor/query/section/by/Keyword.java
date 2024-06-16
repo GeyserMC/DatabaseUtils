@@ -22,9 +22,11 @@
  * @author GeyserMC
  * @link https://github.com/GeyserMC/DatabaseUtils
  */
-package org.geysermc.databaseutils;
+package org.geysermc.databaseutils.processor.query.section.by;
 
-public enum DatabaseType {
-    SQL,
-    MONGODB
+import java.util.List;
+import org.checkerframework.checker.nullness.qual.NonNull;
+
+public interface Keyword {
+    @NonNull List<@NonNull String> names();
 }

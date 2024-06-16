@@ -6,6 +6,7 @@ currently examples can be found in the tests of the AP module and the tests of t
 
 # What's left to do?
 - 'complex' updates like `updateCByAAndB` which would update every row's C to the specified value where A and B match the specified value
+- add distinct and things like limit and offset
 - make 'simple' actions like `insert` more flexible
   - allow it to return something else than void, e.g. ~~the input entity~~ or whether there was a row added
   - support adding every variable of the entity as parameter

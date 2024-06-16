@@ -10,7 +10,7 @@ dependencies {
     annotationProcessor(libs.auto.service)
 
     testImplementation(libs.compile.testing)
-    testImplementation(libs.junit.api)
+    testImplementation(libs.bundles.junit)
     testRuntimeOnly(libs.junit.engine)
 }
 

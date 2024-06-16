@@ -6,7 +6,7 @@ h2 = "2.2.224"
 javapoet = "1.10.0"
 auto-service = "1.1.1"
 compile-testing = "0.21.0"
-junit = "5.9.1"
+junit = "5.10.0"
 
 indra = "3.1.3"
 
@@ -22,8 +22,12 @@ compile-testing = { module = "com.google.testing.compile:compile-testing", versi
 
 junit-api = { module = "org.junit.jupiter:junit-jupiter-api", version.ref = "junit" }
 junit-engine = { module = "org.junit.jupiter:junit-jupiter-engine", version.ref = "junit" }
+junit-params = { module = "org.junit.jupiter:junit-jupiter-params", version.ref = "junit" }
 
 [plugins]
 indra = { id = "net.kyori.indra", version.ref = "indra" }
 indra-publishing = { id = "net.kyori.indra.publishing", version.ref = "indra" }
 indra-licenser-spotless = { id = "net.kyori.indra.licenser.spotless", version.ref = "indra" }
+
+[bundles]
+junit = ["junit-api", "junit-params"]

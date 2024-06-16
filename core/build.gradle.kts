@@ -6,6 +6,6 @@ dependencies {
     testRuntimeOnly(libs.h2)
     testAnnotationProcessor(projects.ap)
 
-    testImplementation(libs.junit.api)
+    testImplementation(libs.bundles.junit)
     testRuntimeOnly(libs.junit.engine)
 }

@@ -26,23 +26,21 @@ package org.geysermc.databaseutils.processor.action;
 
 import com.squareup.javapoet.MethodSpec;
 import javax.lang.model.element.TypeElement;
-import javax.lang.model.element.VariableElement;
-import org.geysermc.databaseutils.processor.info.EntityInfo;
+import org.geysermc.databaseutils.processor.query.QueryInfo;
 import org.geysermc.databaseutils.processor.type.RepositoryGenerator;
 
-final class InsertAction extends SimpleAction {
+final class InsertAction extends Action {
     InsertAction() {
-        super("insert");
+        super("insert", false);
     }
 
     @Override
     protected void addToSingle(
             RepositoryGenerator generator,
-            EntityInfo info,
-            TypeElement returnType,
-            VariableElement parameter,
+            QueryInfo info,
             MethodSpec.Builder spec,
+            TypeElement returnType,
             boolean async) {
-        generator.addInsert(info, returnType, parameter, spec, async);
+        generator.addInsert(info, spec, returnType, async);
     }
 }

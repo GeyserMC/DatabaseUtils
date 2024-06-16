@@ -22,9 +22,33 @@
  * @author GeyserMC
  * @link https://github.com/GeyserMC/DatabaseUtils
  */
-package org.geysermc.databaseutils;
+package org.geysermc.databaseutils.processor.query.section.order;
 
-public enum DatabaseType {
-    SQL,
-    MONGODB
+import java.util.List;
+
+public enum OrderDirection {
+    ASCENDING("asc", "ascending"),
+    DESCENDING("desc", "descending");
+
+    public static final OrderDirection DEFAULT = ASCENDING;
+    private static final OrderDirection[] VALUES = values();
+
+    private final List<String> names;
+
+    OrderDirection(String... names) {
+        this.names = List.of(names);
+    }
+
+    public static OrderDirection byName(String name) {
+        for (OrderDirection value : VALUES) {
+            if (value.names.contains(name)) {
+                return value;
+            }
+        }
+        return null;
+    }
+
+    public List<String> names() {
+        return names;
+    }
 }

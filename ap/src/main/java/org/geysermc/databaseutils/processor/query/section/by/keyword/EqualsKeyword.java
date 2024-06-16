@@ -22,9 +22,20 @@
  * @author GeyserMC
  * @link https://github.com/GeyserMC/DatabaseUtils
  */
-package org.geysermc.databaseutils;
+package org.geysermc.databaseutils.processor.query.section.by.keyword;
 
-public enum DatabaseType {
-    SQL,
-    MONGODB
+import java.util.List;
+import org.checkerframework.checker.nullness.qual.NonNull;
+import org.geysermc.databaseutils.processor.query.section.by.SingleInputKeyword;
+
+public final class EqualsKeyword extends SingleInputKeyword {
+    @Override
+    public List<Class<?>> acceptedInput() {
+        return List.of(Object.class);
+    }
+
+    @Override
+    public @NonNull List<@NonNull String> names() {
+        return List.of("Equals", "Is");
+    }
 }

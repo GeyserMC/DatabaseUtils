@@ -38,19 +38,20 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CompletionException;
-import java.util.function.Function;
 import java.util.function.Supplier;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
-import javax.lang.model.element.VariableElement;
+import org.checkerframework.checker.nullness.qual.NonNull;
 import org.geysermc.databaseutils.processor.info.ColumnInfo;
-import org.geysermc.databaseutils.processor.info.EntityInfo;
 import org.geysermc.databaseutils.processor.query.QueryInfo;
-import org.geysermc.databaseutils.processor.query.section.QuerySection;
-import org.geysermc.databaseutils.processor.query.section.VariableSection;
-import org.geysermc.databaseutils.processor.query.section.selector.AndSelector;
-import org.geysermc.databaseutils.processor.query.section.selector.OrSelector;
+import org.geysermc.databaseutils.processor.query.section.by.keyword.EqualsKeyword;
+import org.geysermc.databaseutils.processor.query.section.by.keyword.LessThanKeyword;
+import org.geysermc.databaseutils.processor.query.section.factor.AndFactor;
+import org.geysermc.databaseutils.processor.query.section.factor.Factor;
+import org.geysermc.databaseutils.processor.query.section.factor.OrFactor;
+import org.geysermc.databaseutils.processor.query.section.factor.VariableByFactor;
 import org.geysermc.databaseutils.processor.util.InvalidRepositoryException;
 import org.geysermc.databaseutils.processor.util.TypeUtils;
 
@@ -67,9 +68,10 @@ public class SqlRepositoryGenerator extends RepositoryGenerator {
     }
 
     @Override
-    public void addFindBy(QueryInfo info, MethodSpec.Builder spec, boolean async) {
-        var query = "select * from %s where %s".formatted(info.tableName(), createWhereFor(info));
-        addActionedQueryData(spec, async, query, info.variableNames(), info.parameterNames(), info::columnFor, () -> {
+    public void addFind(QueryInfo info, MethodSpec.Builder spec, TypeElement returnType, boolean async) {
+        // todo make it work without a By section
+        var query = "select * from %s where %s".formatted(info.tableName(), createWhereForAll(info));
+        addExecuteQueryData(spec, async, query, info, () -> {
             spec.beginControlFlow("if (!result.next())");
             spec.addStatement("return null");
             spec.endControlFlow();
@@ -95,157 +97,116 @@ public class SqlRepositoryGenerator extends RepositoryGenerator {
     }
 
     @Override
-    public void addExistsBy(QueryInfo info, MethodSpec.Builder spec, boolean async) {
-        var query = "select 1 from %s where %s".formatted(info.tableName(), createWhereFor(info));
-        addActionedQueryData(
-                spec,
-                async,
-                query,
-                info.variableNames(),
-                info.parameterNames(),
-                info::columnFor,
-                () -> spec.addStatement("return result.next()"));
+    public void addExists(QueryInfo info, MethodSpec.Builder spec, TypeElement returnType, boolean async) {
+        // todo make it work without a By section
+        var query = "select 1 from %s where %s".formatted(info.tableName(), createWhereForAll(info));
+        addExecuteQueryData(spec, async, query, info, () -> spec.addStatement("return result.next()"));
     }
 
     @Override
-    public void addDeleteBy(QueryInfo info, MethodSpec.Builder spec, boolean async) {
-        var query = "delete from %s where %s".formatted(info.tableName(), createWhereFor(info));
-        addActionedUpdateData(
-                spec,
-                info.entityType(),
-                Void.class.getCanonicalName(),
-                async,
-                query,
-                info.variableNames(),
-                info.parameterNames(),
-                null,
-                info::columnFor);
-    }
-
-    @Override
-    public void addInsert(
-            EntityInfo info,
-            TypeElement returnType,
-            VariableElement parameter,
-            MethodSpec.Builder spec,
-            boolean async) {
+    public void addInsert(QueryInfo info, MethodSpec.Builder spec, TypeElement returnType, boolean async) {
         var columnNames =
                 String.join(",", info.columns().stream().map(ColumnInfo::name).toList());
         var columnParameters = String.join(",", repeat("?", info.columns().size()));
-        var query = "insert into %s (%s) values (%s)".formatted(info.name(), columnNames, columnParameters);
-        addSimple(info, returnType, parameter, query, info.columns(), spec, async);
+        var query = "insert into %s (%s) values (%s)".formatted(info.tableName(), columnNames, columnParameters);
+        addUpdateQueryData(spec, returnType, async, query, info, info.columns());
     }
 
     @Override
-    public void addUpdate(
-            EntityInfo info,
-            TypeElement returnType,
-            VariableElement parameter,
-            MethodSpec.Builder spec,
-            boolean async) {
-        var query = "update %s set %s where %s".formatted(info.name(), createSetFor(info), createWhereFor(info));
-        var variables = new ArrayList<>(info.notKeyColumns());
-        variables.addAll(info.keyColumns());
-        addSimple(info, returnType, parameter, query, variables, spec, async);
+    public void addUpdate(QueryInfo info, MethodSpec.Builder spec, TypeElement returnType, boolean async) {
+        // todo make it work with By section
+        var query =
+                "update %s set %s where %s".formatted(info.tableName(), createSetFor(info), createWhereForKeys(info));
+        addUpdateQueryData(
+                spec, returnType, async, query, info, info.entityInfo().notKeyFirstColumns());
     }
 
     @Override
-    public void addDelete(
-            EntityInfo info,
-            TypeElement returnType,
-            VariableElement parameter,
-            MethodSpec.Builder spec,
-            boolean async) {
-        var query = "delete from %s where %s".formatted(info.name(), createWhereFor(info));
-        addSimple(info, returnType, parameter, query, info.keyColumns(), spec, async);
+    public void addDelete(QueryInfo info, MethodSpec.Builder spec, TypeElement returnType, boolean async) {
+        if (info.hasBySection()) {
+            var query = "delete from %s where %s".formatted(info.tableName(), createWhereForAll(info));
+            addUpdateQueryData(spec, Void.class.getCanonicalName(), async, query, info);
+            return;
+        }
+
+        var query = "delete from %s where %s".formatted(info.tableName(), createWhereForKeys(info));
+        addUpdateQueryData(
+                spec, returnType, async, query, info, info.entityInfo().keyColumns());
     }
 
-    private void addSimple(
-            EntityInfo info,
-            TypeElement returnType,
-            VariableElement parameter,
-            String query,
-            List<ColumnInfo> variables,
-            MethodSpec.Builder spec,
-            boolean async) {
-        var variableNames =
-                variables.stream().map(column -> column.name().toString()).toList();
-        var variableFormat = parameter.getSimpleName() + ".%s()";
-        addActionedUpdateData(
-                spec,
-                info.className(),
-                returnType.getQualifiedName(),
-                async,
-                query,
-                variableNames,
-                List.of(parameter.getSimpleName()),
-                variableFormat,
-                info::columnFor);
-    }
-
-    private void addActionedQueryData(
-            MethodSpec.Builder spec,
-            boolean async,
-            String query,
-            List<? extends CharSequence> variableNames,
-            List<? extends CharSequence> parameterNames,
-            Function<CharSequence, ColumnInfo> columnFor,
-            Runnable content) {
-        addActionedData(spec, async, query, variableNames, parameterNames, null, columnFor, () -> {
+    private void addExecuteQueryData(
+            MethodSpec.Builder spec, boolean async, String query, QueryInfo info, Runnable content) {
+        addBySectionData(spec, async, query, info, () -> {
             spec.beginControlFlow("try ($T result = statement.executeQuery())", ResultSet.class);
             content.run();
             spec.endControlFlow();
         });
     }
 
-    private void addActionedUpdateData(
+    private void addUpdateQueryData(
             MethodSpec.Builder spec,
-            CharSequence entityType,
-            CharSequence returnType,
+            TypeElement returnType,
             boolean async,
             String query,
-            List<? extends CharSequence> variableNames,
-            List<? extends CharSequence> parameterNames,
-            String variableFormat,
-            Function<CharSequence, ColumnInfo> columnFor) {
-        addActionedData(spec, async, query, variableNames, parameterNames, variableFormat, columnFor, () -> {
+            QueryInfo info,
+            List<ColumnInfo> columns) {
+        addNoBySectionData(spec, async, query, info, columns, () -> {
             spec.addStatement("statement.executeUpdate()");
-            if (TypeUtils.isTypeOf(Void.class, returnType)) {
+            if (TypeUtils.isType(Void.class, returnType)) {
                 spec.addStatement("return null");
-            } else if (TypeUtils.isTypeOf(entityType, returnType)) {
+            } else if (TypeUtils.isType(info.entityType(), returnType)) {
                 // todo support also creating an entity type from the given parameters
-                spec.addStatement("return $L", parameterNames.get(0));
+                spec.addStatement("return $L", info.parameterName(0));
             } else {
                 throw new InvalidRepositoryException(
-                        "Return type can be either void or %s but got %s", entityType, returnType);
+                        "Return type can be either void or %s but got %s",
+                        info.entityType(), returnType.getQualifiedName());
             }
         });
     }
 
-    private void addActionedData(
+    private void addUpdateQueryData(
+            MethodSpec.Builder spec, CharSequence returnType, boolean async, String query, QueryInfo info) {
+        addBySectionData(spec, async, query, info, () -> {
+            spec.addStatement("statement.executeUpdate()");
+            if (TypeUtils.isType(Void.class, returnType)) {
+                spec.addStatement("return null");
+            } else if (TypeUtils.isType(info.entityType(), returnType)) {
+                // todo support also creating an entity type from the given parameters
+                spec.addStatement("return $L", info.parameterName(0));
+            } else {
+                throw new InvalidRepositoryException(
+                        "Return type can be either void or %s but got %s", info.entityType(), returnType);
+            }
+        });
+    }
+
+    private void addNoBySectionData(
             MethodSpec.Builder spec,
             boolean async,
             String query,
-            List<? extends CharSequence> variableNames,
-            List<? extends CharSequence> parameterNames,
-            String variableFormat,
-            Function<CharSequence, ColumnInfo> columnFor,
+            QueryInfo info,
+            List<ColumnInfo> columns,
             Runnable content) {
         wrapInCompletableFuture(spec, async, () -> {
             spec.beginControlFlow("try ($T connection = dataSource.getConnection())", Connection.class);
             spec.beginControlFlow(
                     "try ($T statement = connection.prepareStatement($S))", PreparedStatement.class, query);
 
-            for (int i = 0; i < variableNames.size(); i++) {
-                var name = variableNames.get(i);
-                var columnType = columnFor.apply(name).typeName();
-                var input = variableFormat != null ? variableFormat.formatted(name) : parameterNames.get(i);
+            // if it doesn't have a By section, we add all the requested columns
+            var parameterName = info.parameterName(0);
+            int variableIndex = 0;
+            for (ColumnInfo column : columns) {
+                var columnName = column.name();
+                var columnType = column.typeName();
 
+                var input = "%s.%s()".formatted(parameterName, columnName);
                 if (TypeUtils.needsTypeCodec(columnType)) {
-                    input = CodeBlock.of("this.__$L.encode($L)", name, input).toString();
+                    input = CodeBlock.of("this.__$L.encode($L)", columnName, input)
+                            .toString();
                 }
-
-                spec.addStatement(jdbcSetFor(columnType, "statement.%s($L, $L)"), i + 1, input);
+                // jdbc index starts at 1
+                spec.addStatement(jdbcSetFor(columnType, "statement.%s($L, $L)"), ++variableIndex, input);
             }
 
             content.run();
@@ -258,46 +219,93 @@ public class SqlRepositoryGenerator extends RepositoryGenerator {
         typeSpec.addMethod(spec.build());
     }
 
-    private String createSetFor(EntityInfo info) {
-        return createParametersForColumns(info.notKeyColumns(), null, ',');
+    private void addBySectionData(
+            MethodSpec.Builder spec, boolean async, String query, QueryInfo info, Runnable content) {
+        wrapInCompletableFuture(spec, async, () -> {
+            spec.beginControlFlow("try ($T connection = dataSource.getConnection())", Connection.class);
+            spec.beginControlFlow(
+                    "try ($T statement = connection.prepareStatement($S))", PreparedStatement.class, query);
+
+            // if it has a By section, everything is handled through the parameters
+            int variableIndex = 0;
+            for (VariableByFactor variable : info.byVariables()) {
+                var columnName = variable.name();
+                var columnType =
+                        Objects.requireNonNull(info.columnFor(columnName)).typeName();
+
+                for (@NonNull CharSequence parameterName : variable.keyword().parameterNames()) {
+                    var input = parameterName;
+                    if (TypeUtils.needsTypeCodec(columnType)) {
+                        input = CodeBlock.of("this.__$L.encode($L)", columnName, input)
+                                .toString();
+                    }
+                    // jdbc index starts at 1
+                    spec.addStatement(jdbcSetFor(columnType, "statement.%s($L, $L)"), ++variableIndex, input);
+                }
+            }
+
+            content.run();
+
+            spec.endControlFlow();
+            spec.nextControlFlow("catch ($T exception)", SQLException.class);
+            spec.addStatement("throw new $T($S, exception)", CompletionException.class, "Unexpected error occurred");
+            spec.endControlFlow();
+        });
+        typeSpec.addMethod(spec.build());
     }
 
-    private String createWhereFor(EntityInfo info) {
-        return createParametersForColumns(info.keyColumns(), () -> AndSelector.INSTANCE, ' ');
+    private String createSetFor(QueryInfo info) {
+        return createParametersForColumns(info.entityInfo().notKeyColumns(), null, ',');
     }
 
-    private String createWhereFor(QueryInfo info) {
-        return createParametersForSections(info.sections(), ' ');
+    private String createWhereForKeys(QueryInfo info) {
+        return createParametersForColumns(info.entityInfo().keyColumns(), () -> AndFactor.INSTANCE, ' ');
+    }
+
+    private String createWhereForAll(QueryInfo info) {
+        return createParametersForFactors(info.bySectionFactors(), ' ');
     }
 
     private String createParametersForColumns(
-            List<ColumnInfo> columns, Supplier<QuerySection> sectionSeparator, char separator) {
-        var sections = new ArrayList<QuerySection>();
+            List<ColumnInfo> columns, Supplier<Factor> factorSeparator, char separator) {
+        var factors = new ArrayList<Factor>();
         for (ColumnInfo column : columns) {
-            if (!sections.isEmpty() && sectionSeparator != null) {
-                sections.add(sectionSeparator.get());
+            if (!factors.isEmpty() && factorSeparator != null) {
+                factors.add(factorSeparator.get());
             }
-            sections.add(new VariableSection(column.name()));
+            factors.add(new VariableByFactor(column.name()));
         }
-        return createParametersForSections(sections, separator);
+        return createParametersForFactors(factors, separator);
     }
 
-    private String createParametersForSections(List<QuerySection> sections, char separator) {
+    private String createParametersForFactors(List<Factor> factors, char separator) {
         var builder = new StringBuilder();
-        for (QuerySection section : sections) {
+        for (Factor factor : factors) {
             if (!builder.isEmpty()) {
                 builder.append(separator);
             }
 
-            if (section instanceof VariableSection variable) {
-                builder.append(variable.name()).append("=?");
-            } else if (section instanceof AndSelector) {
+            if (factor instanceof AndFactor) {
                 builder.append("and");
-            } else if (section instanceof OrSelector) {
+                continue;
+            }
+            if (factor instanceof OrFactor) {
                 builder.append("or");
-            } else {
+                continue;
+            }
+            if (!(factor instanceof VariableByFactor variable)) {
                 throw new InvalidRepositoryException(
-                        "Unknown action type %s", section.getClass().getCanonicalName());
+                        "Unknown factor type %s", factor.getClass().getCanonicalName());
+            }
+            var keyword = variable.keyword();
+
+            builder.append(variable.name());
+            if (keyword instanceof EqualsKeyword) {
+                builder.append("=?");
+            } else if (keyword instanceof LessThanKeyword) {
+                builder.append("<?");
+            } else {
+                throw new InvalidRepositoryException("Unsupported keyword %s", keyword);
             }
         }
         return builder.toString();

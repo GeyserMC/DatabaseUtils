@@ -29,35 +29,66 @@ import java.util.Set;
 import javax.lang.model.element.Name;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeMirror;
+import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
 
 public final class TypeUtils {
-    private TypeUtils() {}
+    private final Types typeUtils;
+    private final Elements elementUtils;
 
-    public static TypeElement toBoxedTypeElement(TypeMirror mirror, Types typeUtils) {
+    public TypeUtils(Types typeUtils, Elements elementUtils) {
+        this.typeUtils = typeUtils;
+        this.elementUtils = elementUtils;
+    }
+
+    public TypeElement toBoxedTypeElement(TypeMirror mirror) {
         if (mirror.getKind().isPrimitive()) {
             return typeUtils.boxedClass(MoreTypes.asPrimitiveType(mirror));
         }
         return MoreTypes.asTypeElement(mirror);
     }
 
-    public static boolean isTypeOf(Class<?> clazz, TypeElement element) {
-        return isTypeOf(clazz, element.getQualifiedName());
+    public boolean isAssignable(TypeMirror impl, TypeMirror base) {
+        return typeUtils.isAssignable(impl, base);
     }
 
-    public static boolean isTypeOf(Class<?> clazz, CharSequence canonicalName) {
+    public boolean isAssignable(CharSequence impl, TypeMirror base) {
+        return isAssignable(elementUtils.getTypeElement(impl).asType(), base);
+    }
+
+    public boolean isAssignable(Class<?> impl, TypeMirror base) {
+        return isAssignable(impl.getCanonicalName(), base);
+    }
+
+    public boolean isAssignable(TypeMirror impl, CharSequence base) {
+        return isAssignable(impl, elementUtils.getTypeElement(base).asType());
+    }
+
+    public boolean isAssignable(TypeMirror impl, Class<?> base) {
+        return isAssignable(impl, base.getCanonicalName());
+    }
+
+    public CharSequence canonicalName(TypeMirror mirror) {
+        return toBoxedTypeElement(mirror).getQualifiedName();
+    }
+
+    public static boolean isType(Class<?> clazz, TypeElement element) {
+        return isType(clazz, element.getQualifiedName());
+    }
+
+    public static boolean isType(Class<?> clazz, CharSequence canonicalName) {
         return clazz.getCanonicalName().contentEquals(canonicalName);
     }
 
-    public static boolean isTypeOf(CharSequence name, TypeElement element) {
+    public static boolean isType(CharSequence name, TypeElement element) {
         return element.getQualifiedName().contentEquals(name);
     }
 
-    public static boolean isTypeOf(CharSequence expected, TypeMirror actual) {
-        return isTypeOf(expected, MoreTypes.asTypeElement(actual));
+    public static boolean isType(CharSequence expected, TypeMirror actual) {
+        return isType(expected, MoreTypes.asTypeElement(actual));
     }
 
-    public static boolean isTypeOf(CharSequence expected, CharSequence actual) {
+    public static boolean isType(CharSequence expected, CharSequence actual) {
         return CharSequence.compare(expected, actual) == 0;
     }
 
@@ -86,5 +117,12 @@ public final class TypeUtils {
                 .filter(clazz -> className.contentEquals(clazz.getCanonicalName()))
                 .findAny()
                 .isEmpty();
+    }
+
+    public static boolean isWholeNumberType(TypeElement element) {
+        return isType(Byte.class, element)
+                || isType(Short.class, element)
+                || isType(Integer.class, element)
+                || isType(Long.class, element);
     }
 }

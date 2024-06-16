@@ -22,12 +22,37 @@
  * @author GeyserMC
  * @link https://github.com/GeyserMC/DatabaseUtils
  */
-package org.geysermc.databaseutils.processor.query.section.selector;
+package org.geysermc.databaseutils.processor.action;
 
-import org.geysermc.databaseutils.processor.query.section.QuerySection;
+import com.squareup.javapoet.MethodSpec;
+import javax.lang.model.element.TypeElement;
+import org.geysermc.databaseutils.processor.query.QueryInfo;
+import org.geysermc.databaseutils.processor.type.RepositoryGenerator;
+import org.geysermc.databaseutils.processor.util.InvalidRepositoryException;
+import org.geysermc.databaseutils.processor.util.TypeUtils;
 
-public final class AndSelector implements QuerySection {
-    public static final AndSelector INSTANCE = new AndSelector();
+final class ExistsAction extends Action {
+    ExistsAction() {
+        super("exists");
+    }
 
-    private AndSelector() {}
+    @Override
+    protected boolean validateSingle(QueryInfo info, TypeElement returnType, TypeUtils typeUtils) {
+        if (!TypeUtils.isType(Boolean.class, returnType)) {
+            throw new InvalidRepositoryException(
+                    "Expected Boolean as return type for %s, got %s",
+                    info.element().getSimpleName(), returnType);
+        }
+        return true;
+    }
+
+    @Override
+    public void addToSingle(
+            RepositoryGenerator generator,
+            QueryInfo info,
+            MethodSpec.Builder spec,
+            TypeElement returnType,
+            boolean async) {
+        generator.addExists(info, spec, returnType, async);
+    }
 }

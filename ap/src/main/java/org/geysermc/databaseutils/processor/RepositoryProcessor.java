@@ -46,28 +46,29 @@ import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeMirror;
-import javax.lang.model.util.Types;
 import javax.tools.Diagnostic;
 import org.geysermc.databaseutils.IRepository;
 import org.geysermc.databaseutils.meta.Repository;
 import org.geysermc.databaseutils.processor.action.ActionRegistry;
+import org.geysermc.databaseutils.processor.query.KeywordsReader;
+import org.geysermc.databaseutils.processor.query.QueryInfoCreator;
 import org.geysermc.databaseutils.processor.type.RepositoryGenerator;
 import org.geysermc.databaseutils.processor.util.InvalidRepositoryException;
 import org.geysermc.databaseutils.processor.util.TypeUtils;
 
 @AutoService(Processor.class)
 public final class RepositoryProcessor extends AbstractProcessor {
+    private TypeUtils typeUtils;
     private EntityManager entityManager;
     private Filer filer;
-    private Types typeUtils;
     private Messager messager;
 
     @Override
     public synchronized void init(ProcessingEnvironment processingEnv) {
         super.init(processingEnv);
-        this.entityManager = new EntityManager(processingEnv.getTypeUtils());
+        this.typeUtils = new TypeUtils(processingEnv.getTypeUtils(), processingEnv.getElementUtils());
+        this.entityManager = new EntityManager(typeUtils);
         this.filer = processingEnv.getFiler();
-        this.typeUtils = processingEnv.getTypeUtils();
         this.messager = processingEnv.getMessager();
     }
 
@@ -169,7 +170,7 @@ public final class RepositoryProcessor extends AbstractProcessor {
     private List<RepositoryGenerator> processRepository(TypeElement repository) {
         TypeMirror entityType = null;
         for (TypeMirror mirror : repository.getInterfaces()) {
-            if (TypeUtils.isTypeOf(IRepository.class, MoreTypes.asTypeElement(mirror))) {
+            if (TypeUtils.isType(IRepository.class, MoreTypes.asTypeElement(mirror))) {
                 entityType = MoreTypes.asDeclared(mirror).getTypeArguments().get(0);
             }
         }
@@ -198,22 +199,23 @@ public final class RepositoryProcessor extends AbstractProcessor {
             boolean async = false;
             if (MoreTypes.isTypeOf(CompletableFuture.class, element.getReturnType())) {
                 async = true;
-                returnType = TypeUtils.toBoxedTypeElement(
-                        MoreTypes.asDeclared(element.getReturnType())
-                                .getTypeArguments()
-                                .get(0),
-                        typeUtils);
+                returnType = typeUtils.toBoxedTypeElement(MoreTypes.asDeclared(element.getReturnType())
+                        .getTypeArguments()
+                        .get(0));
             } else {
-                returnType = TypeUtils.toBoxedTypeElement(element.getReturnType(), typeUtils);
+                returnType = typeUtils.toBoxedTypeElement(element.getReturnType());
             }
 
             var name = element.getSimpleName().toString();
 
-            var action = ActionRegistry.actionMatching(name);
+            var result = new KeywordsReader(name, entity).read();
+            var action = ActionRegistry.actionMatching(result);
             if (action == null) {
                 throw new InvalidRepositoryException("No available actions for %s", name);
             }
-            action.addTo(generators, name, element, returnType, entity, typeUtils, async);
+            var queryInfo = new QueryInfoCreator(result, element, entity, typeUtils).create();
+
+            action.addTo(generators, queryInfo, returnType, async, typeUtils);
         }
 
         return generators;

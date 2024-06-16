@@ -46,7 +46,7 @@ public class SqlDatabaseGenerator extends DatabaseGenerator {
     @Override
     protected void addEntities(Collection<EntityInfo> entities, MethodSpec.Builder method) {
         method.addException(SQLException.class);
-        method.addStatement("$T type = database.type()", SqlDialect.class);
+        method.addStatement("$T dialect = database.dialect()", SqlDialect.class);
 
         method.beginControlFlow("try ($T connection = database.dataSource().getConnection())", Connection.class);
         method.beginControlFlow("try ($T statement = connection.createStatement())", Statement.class);
@@ -73,7 +73,7 @@ public class SqlDatabaseGenerator extends DatabaseGenerator {
             }
 
             builder.add(
-                    "\"$L \" + $T.sqlTypeFor($T.class, type) ",
+                    "\"$L \" + $T.sqlTypeFor($T.class, dialect) ",
                     column.name(),
                     SqlTypeMappingRegistry.class,
                     ClassName.bestGuess(column.typeName().toString()));

@@ -22,9 +22,14 @@
  * @author GeyserMC
  * @link https://github.com/GeyserMC/DatabaseUtils
  */
-package org.geysermc.databaseutils;
+package org.geysermc.databaseutils.processor.query.section.factor;
 
-public enum DatabaseType {
-    SQL,
-    MONGODB
+import org.checkerframework.checker.nullness.qual.NonNull;
+import org.geysermc.databaseutils.processor.query.section.by.MultiInputKeyword;
+import org.geysermc.databaseutils.processor.query.section.by.keyword.EqualsKeyword;
+
+public record VariableByFactor(@NonNull CharSequence name, @NonNull MultiInputKeyword keyword) implements Factor {
+    public VariableByFactor(CharSequence name) {
+        this(name, new EqualsKeyword());
+    }
 }
