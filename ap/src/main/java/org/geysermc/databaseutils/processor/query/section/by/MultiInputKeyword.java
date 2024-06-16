@@ -26,6 +26,7 @@ package org.geysermc.databaseutils.processor.query.section.by;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import javax.lang.model.type.TypeMirror;
 import org.checkerframework.checker.nullness.qual.NonNull;
 import org.geysermc.databaseutils.processor.info.ColumnInfo;
@@ -89,5 +90,18 @@ public abstract class MultiInputKeyword implements Keyword {
 
     public void addParameterName(@NonNull CharSequence parameterName) {
         parameterNames.add(parameterName);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        MultiInputKeyword that = (MultiInputKeyword) o;
+        return Objects.equals(parameterNames, that.parameterNames);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(parameterNames);
     }
 }
