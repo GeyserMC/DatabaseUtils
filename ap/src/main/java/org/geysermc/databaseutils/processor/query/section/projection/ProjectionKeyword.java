@@ -22,10 +22,40 @@
  * @author GeyserMC
  * @link https://github.com/GeyserMC/DatabaseUtils
  */
-package org.geysermc.databaseutils.processor.query.section.order;
+package org.geysermc.databaseutils.processor.query.section.projection;
 
-import java.util.List;
+import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.NonNull;
-import org.geysermc.databaseutils.processor.query.section.factor.Factor;
 
-public record OrderBySection(@NonNull List<@NonNull Factor> factors) {}
+public abstract class ProjectionKeyword {
+    private final String name;
+    private final ProjectionKeywordCategory category;
+
+    protected ProjectionKeyword(String name, ProjectionKeywordCategory category) {
+        this.name = name;
+        this.category = category;
+    }
+
+    public @NonNull String name() {
+        return name;
+    }
+
+    public ProjectionKeywordCategory category() {
+        return category;
+    }
+
+    public void setValue(@NonNull String fullKeyword) {}
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        ProjectionKeyword that = (ProjectionKeyword) o;
+        return Objects.equals(name, that.name);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(name);
+    }
+}

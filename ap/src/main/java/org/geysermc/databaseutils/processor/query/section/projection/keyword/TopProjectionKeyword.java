@@ -22,33 +22,47 @@
  * @author GeyserMC
  * @link https://github.com/GeyserMC/DatabaseUtils
  */
-package org.geysermc.databaseutils.processor.action;
+package org.geysermc.databaseutils.processor.query.section.projection.keyword;
 
-import com.squareup.javapoet.MethodSpec;
-import javax.lang.model.type.TypeMirror;
-import org.geysermc.databaseutils.processor.info.EntityInfo;
-import org.geysermc.databaseutils.processor.query.QueryInfo;
-import org.geysermc.databaseutils.processor.type.RepositoryGenerator;
-import org.geysermc.databaseutils.processor.util.InvalidRepositoryException;
-import org.geysermc.databaseutils.processor.util.TypeUtils;
+import java.util.Objects;
+import org.checkerframework.checker.nullness.qual.NonNull;
+import org.geysermc.databaseutils.processor.query.section.projection.ProjectionKeyword;
+import org.geysermc.databaseutils.processor.query.section.projection.ProjectionKeywordCategory;
 
-final class DeleteAction extends Action {
-    DeleteAction() {
-        super("delete", true, true);
+public class TopProjectionKeyword extends ProjectionKeyword {
+    private int limit;
+
+    public TopProjectionKeyword() {
+        super("Top[1-9][0-9]*", ProjectionKeywordCategory.LIMIT);
+    }
+
+    public TopProjectionKeyword(int limit) {
+        this();
+        limit(limit);
+    }
+
+    public int limit() {
+        return limit;
+    }
+
+    public void limit(int limit) {
+        this.limit = limit;
+    }
+
+    public void setValue(@NonNull String fullKeyword) {
+        limit(Integer.parseInt(fullKeyword.substring(3)));
     }
 
     @Override
-    protected void addToSingle(RepositoryGenerator generator, QueryInfo info, MethodSpec.Builder spec) {
-        generator.addDelete(info, spec);
-    }
-
-    @Override
-    protected boolean validateSingle(
-            EntityInfo info, CharSequence methodName, TypeMirror returnType, TypeUtils typeUtils) {
-        // todo does it also support saying how many items were deleted?
-        if (!typeUtils.isType(Void.class, returnType)) {
-            throw new InvalidRepositoryException("Expected Void as return type for %s, got %s", methodName, returnType);
+    public boolean equals(Object o) {
+        if (!super.equals(o)) {
+            return false;
         }
-        return true;
+        return ((TopProjectionKeyword) o).limit == limit;
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(name(), limit);
     }
 }

@@ -33,7 +33,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.Filer;
 import javax.annotation.processing.Messager;
@@ -102,7 +101,7 @@ public final class RepositoryProcessor extends AbstractProcessor {
                 for (int i = 0; i < result.size(); i++) {
                     results.get(i).add(result.get(i));
                 }
-            } catch (InvalidRepositoryException exception) {
+            } catch (InvalidRepositoryException | IllegalStateException exception) {
                 error(exception.getMessage());
                 errorOccurred = true;
             }
@@ -195,17 +194,6 @@ public final class RepositoryProcessor extends AbstractProcessor {
                 continue;
             }
 
-            TypeElement returnType;
-            boolean async = false;
-            if (MoreTypes.isTypeOf(CompletableFuture.class, element.getReturnType())) {
-                async = true;
-                returnType = typeUtils.toBoxedTypeElement(MoreTypes.asDeclared(element.getReturnType())
-                        .getTypeArguments()
-                        .get(0));
-            } else {
-                returnType = typeUtils.toBoxedTypeElement(element.getReturnType());
-            }
-
             var name = element.getSimpleName().toString();
 
             var result = new KeywordsReader(name, entity).read();
@@ -213,9 +201,9 @@ public final class RepositoryProcessor extends AbstractProcessor {
             if (action == null) {
                 throw new InvalidRepositoryException("No available actions for %s", name);
             }
-            var queryInfo = new QueryInfoCreator(result, element, entity, typeUtils).create();
+            var queryInfo = new QueryInfoCreator(action, result, element, entity, typeUtils).create();
 
-            action.addTo(generators, queryInfo, returnType, async, typeUtils);
+            action.addTo(generators, queryInfo);
         }
 
         return generators;

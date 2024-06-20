@@ -22,33 +22,17 @@
  * @author GeyserMC
  * @link https://github.com/GeyserMC/DatabaseUtils
  */
-package org.geysermc.databaseutils.processor.action;
+package org.geysermc.databaseutils.processor.query.section.factor;
 
-import com.squareup.javapoet.MethodSpec;
-import javax.lang.model.type.TypeMirror;
-import org.geysermc.databaseutils.processor.info.EntityInfo;
-import org.geysermc.databaseutils.processor.query.QueryInfo;
-import org.geysermc.databaseutils.processor.type.RepositoryGenerator;
-import org.geysermc.databaseutils.processor.util.InvalidRepositoryException;
-import org.geysermc.databaseutils.processor.util.TypeUtils;
+import org.checkerframework.checker.nullness.qual.Nullable;
+import org.geysermc.databaseutils.processor.query.section.projection.ProjectionKeyword;
 
-final class DeleteAction extends Action {
-    DeleteAction() {
-        super("delete", true, true);
-    }
+public record ProjectionFactor(@Nullable ProjectionKeyword keyword, @Nullable String columnName)
+        implements VariableFactor {
 
-    @Override
-    protected void addToSingle(RepositoryGenerator generator, QueryInfo info, MethodSpec.Builder spec) {
-        generator.addDelete(info, spec);
-    }
-
-    @Override
-    protected boolean validateSingle(
-            EntityInfo info, CharSequence methodName, TypeMirror returnType, TypeUtils typeUtils) {
-        // todo does it also support saying how many items were deleted?
-        if (!typeUtils.isType(Void.class, returnType)) {
-            throw new InvalidRepositoryException("Expected Void as return type for %s, got %s", methodName, returnType);
+    public ProjectionFactor {
+        if (columnName == null && keyword == null) {
+            throw new IllegalArgumentException("Either the columnName or keyword must be specified");
         }
-        return true;
     }
 }

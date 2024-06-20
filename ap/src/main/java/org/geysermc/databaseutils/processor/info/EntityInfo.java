@@ -27,13 +27,10 @@ package org.geysermc.databaseutils.processor.info;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
+import javax.lang.model.element.TypeElement;
 
 public record EntityInfo(
-        String name,
-        CharSequence className,
-        List<ColumnInfo> columns,
-        List<IndexInfo> indexes,
-        List<CharSequence> keys) {
+        String name, TypeElement type, List<ColumnInfo> columns, List<IndexInfo> indexes, List<CharSequence> keys) {
     public ColumnInfo columnFor(CharSequence columnName) {
         for (ColumnInfo column : columns) {
             if (column.name().contentEquals(columnName)) {
@@ -41,6 +38,10 @@ public record EntityInfo(
             }
         }
         return null;
+    }
+
+    public CharSequence typeName() {
+        return type.getQualifiedName();
     }
 
     public List<ColumnInfo> keyColumns() {

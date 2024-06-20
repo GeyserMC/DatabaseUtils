@@ -25,34 +25,31 @@
 package org.geysermc.databaseutils.processor.action;
 
 import com.squareup.javapoet.MethodSpec;
-import javax.lang.model.element.TypeElement;
+import javax.lang.model.type.TypeMirror;
+import org.geysermc.databaseutils.processor.info.EntityInfo;
 import org.geysermc.databaseutils.processor.query.QueryInfo;
+import org.geysermc.databaseutils.processor.query.section.projection.ProjectionKeywordCategory;
 import org.geysermc.databaseutils.processor.type.RepositoryGenerator;
 import org.geysermc.databaseutils.processor.util.InvalidRepositoryException;
 import org.geysermc.databaseutils.processor.util.TypeUtils;
 
 final class ExistsAction extends Action {
     ExistsAction() {
-        super("exists");
+        super("exists", false, true, ProjectionKeywordCategory.UNIQUE);
     }
 
     @Override
-    protected boolean validateSingle(QueryInfo info, TypeElement returnType, TypeUtils typeUtils) {
-        if (!TypeUtils.isType(Boolean.class, returnType)) {
+    protected boolean validateSingle(
+            EntityInfo info, CharSequence methodName, TypeMirror returnType, TypeUtils typeUtils) {
+        if (!typeUtils.isType(Boolean.class, returnType)) {
             throw new InvalidRepositoryException(
-                    "Expected Boolean as return type for %s, got %s",
-                    info.element().getSimpleName(), returnType);
+                    "Expected Boolean as return type for %s, got %s", methodName, returnType);
         }
         return true;
     }
 
     @Override
-    public void addToSingle(
-            RepositoryGenerator generator,
-            QueryInfo info,
-            MethodSpec.Builder spec,
-            TypeElement returnType,
-            boolean async) {
-        generator.addExists(info, spec, returnType, async);
+    public void addToSingle(RepositoryGenerator generator, QueryInfo info, MethodSpec.Builder spec) {
+        generator.addExists(info, spec);
     }
 }

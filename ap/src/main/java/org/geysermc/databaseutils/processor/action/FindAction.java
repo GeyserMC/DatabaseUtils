@@ -25,34 +25,43 @@
 package org.geysermc.databaseutils.processor.action;
 
 import com.squareup.javapoet.MethodSpec;
-import javax.lang.model.element.TypeElement;
+import javax.lang.model.type.TypeMirror;
+import org.geysermc.databaseutils.processor.info.EntityInfo;
 import org.geysermc.databaseutils.processor.query.QueryInfo;
+import org.geysermc.databaseutils.processor.query.section.projection.ProjectionKeywordCategory;
 import org.geysermc.databaseutils.processor.type.RepositoryGenerator;
 import org.geysermc.databaseutils.processor.util.InvalidRepositoryException;
 import org.geysermc.databaseutils.processor.util.TypeUtils;
 
 final class FindAction extends Action {
     FindAction() {
-        super("find");
+        super(
+                "find",
+                true,
+                true,
+                ProjectionKeywordCategory.UNIQUE,
+                ProjectionKeywordCategory.SUMMARY,
+                ProjectionKeywordCategory.LIMIT);
     }
 
     @Override
-    protected boolean validateEither(QueryInfo info, TypeElement returnType, boolean collection, TypeUtils typeUtils) {
-        if (!TypeUtils.isType(info.entityType(), returnType)) {
+    protected boolean validateEither(
+            EntityInfo info, CharSequence methodName, TypeMirror returnType, boolean collection, TypeUtils typeUtils) {
+        if (!typeUtils.isType(info.type().asType(), returnType)) {
             throw new InvalidRepositoryException(
-                    "Expected %s as return type for %s, got %s",
-                    info.entityType(), info.element().getSimpleName(), returnType);
+                    "Expected %s as return type for %s, got %s", info.typeName(), methodName, returnType);
         }
         return true;
     }
 
     @Override
-    public void addToSingle(
-            RepositoryGenerator generator,
-            QueryInfo info,
-            MethodSpec.Builder spec,
-            TypeElement returnType,
-            boolean async) {
-        generator.addFind(info, spec, returnType, async);
+    protected boolean validateCollection(
+            EntityInfo info, CharSequence methodName, TypeMirror returnType, TypeUtils typeUtils) {
+        return false;
+    }
+
+    @Override
+    public void addToSingle(RepositoryGenerator generator, QueryInfo info, MethodSpec.Builder spec) {
+        generator.addFind(info, spec);
     }
 }

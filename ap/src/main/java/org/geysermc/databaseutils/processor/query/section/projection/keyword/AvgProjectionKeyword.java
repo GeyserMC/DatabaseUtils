@@ -22,11 +22,13 @@
  * @author GeyserMC
  * @link https://github.com/GeyserMC/DatabaseUtils
  */
-package org.geysermc.databaseutils.processor.query.section.by;
+package org.geysermc.databaseutils.processor.query.section.projection.keyword;
 
-import java.util.List;
-import org.checkerframework.checker.nullness.qual.NonNull;
+import org.geysermc.databaseutils.processor.query.section.projection.ProjectionKeyword;
+import org.geysermc.databaseutils.processor.query.section.projection.ProjectionKeywordCategory;
 
-public interface Keyword {
-    @NonNull List<@NonNull String> names();
+public class AvgProjectionKeyword extends ProjectionKeyword {
+    public AvgProjectionKeyword() {
+        super("Avg", ProjectionKeywordCategory.SUMMARY);
+    }
 }

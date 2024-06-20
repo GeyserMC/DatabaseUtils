@@ -27,94 +27,117 @@ package org.geysermc.databaseutils.processor.action;
 import com.squareup.javapoet.MethodSpec;
 import java.util.Collection;
 import java.util.List;
-import javax.lang.model.element.TypeElement;
+import java.util.function.Consumer;
+import javax.lang.model.type.DeclaredType;
+import javax.lang.model.type.TypeMirror;
+import org.geysermc.databaseutils.processor.info.EntityInfo;
 import org.geysermc.databaseutils.processor.query.QueryInfo;
+import org.geysermc.databaseutils.processor.query.section.projection.ProjectionKeywordCategory;
 import org.geysermc.databaseutils.processor.type.RepositoryGenerator;
 import org.geysermc.databaseutils.processor.util.InvalidRepositoryException;
 import org.geysermc.databaseutils.processor.util.TypeUtils;
 
 public abstract class Action {
     private final String actionType;
+    private final boolean allowSelfCollectionArgument;
     private final boolean supportsFilter;
+    private final List<ProjectionKeywordCategory> supportedProjectionCategories;
 
-    protected Action(String actionType) {
-        this(actionType, true);
-    }
-
-    protected Action(String actionType, boolean supportsFilter) {
+    protected Action(
+            String actionType,
+            boolean allowSelfCollectionArgument,
+            boolean supportsFilter,
+            ProjectionKeywordCategory... supportedProjectionCategories) {
         this.actionType = actionType;
+        this.allowSelfCollectionArgument = allowSelfCollectionArgument;
         this.supportsFilter = supportsFilter;
+        this.supportedProjectionCategories = List.of(supportedProjectionCategories);
     }
 
     public String actionType() {
         return actionType;
     }
 
+    public boolean allowSelfCollectionArgument() {
+        return allowSelfCollectionArgument;
+    }
+
     public boolean supportsFilter() {
         return supportsFilter;
     }
 
-    protected abstract void addToSingle(
-            RepositoryGenerator generator,
-            QueryInfo info,
-            MethodSpec.Builder spec,
-            TypeElement returnType,
-            boolean async);
-
-    protected boolean validateSingle(QueryInfo info, TypeElement returnType, TypeUtils typeUtils) {
-        return TypeUtils.isType(Void.class, returnType) || TypeUtils.isWholeNumberType(returnType);
+    public List<ProjectionKeywordCategory> unsupportedProjectionCategories() {
+        return supportedProjectionCategories;
     }
 
-    protected boolean validateCollection(QueryInfo info, TypeElement elementType, TypeUtils typeUtils) {
+    protected abstract void addToSingle(RepositoryGenerator generator, QueryInfo info, MethodSpec.Builder spec);
+
+    protected boolean validateSingle(
+            EntityInfo info, CharSequence methodName, TypeMirror returnType, TypeUtils typeUtils) {
+        return typeUtils.isType(Void.class, returnType) || typeUtils.isWholeNumberType(returnType);
+    }
+
+    protected boolean validateCollection(
+            EntityInfo info, CharSequence methodName, TypeMirror returnType, TypeUtils typeUtils) {
+        throw new InvalidRepositoryException(
+                "Collection return type (%s) is not supported for %s", returnType, actionType());
+    }
+
+    protected boolean validateEither(
+            EntityInfo info, CharSequence methodName, TypeMirror returnType, boolean collection, TypeUtils typeUtils) {
         return false;
     }
 
-    protected boolean validateEither(QueryInfo info, TypeElement elementType, boolean collection, TypeUtils typeUtils) {
-        return false;
-    }
-
-    protected void validate(QueryInfo info, TypeElement returnType, TypeUtils typeUtils) {
-        var elementType = returnType;
-        if (typeUtils.isAssignable(Collection.class, returnType.asType())) {
-            elementType = (TypeElement) returnType.getTypeParameters().get(0);
+    public void validate(
+            EntityInfo info,
+            CharSequence methodName,
+            TypeMirror returnType,
+            TypeUtils typeUtils,
+            Consumer<TypeMirror> customValidation) {
+        var passedCustomValidation = false;
+        if (typeUtils.isAssignable(returnType, Collection.class)) {
+            returnType = ((DeclaredType) returnType).getTypeArguments().get(0);
 
             if (!supportsFilter) {
                 throw new InvalidRepositoryException("%s does not support a By section", actionType);
             }
 
-            if (validateCollection(info, elementType, typeUtils)
-                    || validateEither(info, elementType, true, typeUtils)) {
+            if (customValidation != null) {
+                customValidation.accept(returnType);
+                passedCustomValidation = true;
+            }
+
+            if (validateCollection(info, methodName, returnType, typeUtils)
+                    || validateEither(info, methodName, returnType, true, typeUtils)) {
                 return;
             }
         } else {
-            if (validateEither(info, elementType, false, typeUtils)) {
+            if (customValidation != null) {
+                customValidation.accept(returnType);
+                passedCustomValidation = true;
+            }
+
+            if (validateEither(info, methodName, returnType, false, typeUtils)) {
                 return;
             }
-            if (validateSingle(info, returnType, typeUtils)) {
+            if (validateSingle(info, methodName, returnType, typeUtils)) {
                 return;
             }
         }
 
-        if (!typeUtils.isAssignable(info.entityType(), elementType.asType())) {
-            throw new InvalidRepositoryException(
-                    "Unsupported return type %s for %s",
-                    returnType.getSimpleName(), info.element().getSimpleName());
+        if (!passedCustomValidation) {
+            throw new InvalidRepositoryException("Unsupported return type %s for %s", returnType, methodName);
         }
     }
 
-    public void addTo(
-            List<RepositoryGenerator> generators,
-            QueryInfo info,
-            TypeElement returnType,
-            boolean async,
-            TypeUtils typeUtils) {
-        if (!info.hasBySection() && info.element().getParameters().size() != 1) {
-            throw new InvalidRepositoryException("Expected one parameter with type %s", info.entityType());
+    public void addTo(List<RepositoryGenerator> generators, QueryInfo info) {
+        if (!info.hasBySection() && !info.parametersInfo().isNoneOrAnySelf()) {
+            throw new InvalidRepositoryException("Expected at most one parameter, with type %s", info.entityType());
         }
-        validate(info, returnType, typeUtils);
 
         for (RepositoryGenerator generator : generators) {
-            addToSingle(generator, info, MethodSpec.overriding(info.element()), returnType, async);
+            addToSingle(
+                    generator, info, MethodSpec.overriding(info.parametersInfo().element()));
         }
     }
 }

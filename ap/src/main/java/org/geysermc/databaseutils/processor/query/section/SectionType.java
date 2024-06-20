@@ -22,33 +22,37 @@
  * @author GeyserMC
  * @link https://github.com/GeyserMC/DatabaseUtils
  */
-package org.geysermc.databaseutils.processor.action;
+package org.geysermc.databaseutils.processor.query.section;
 
-import com.squareup.javapoet.MethodSpec;
-import javax.lang.model.type.TypeMirror;
-import org.geysermc.databaseutils.processor.info.EntityInfo;
-import org.geysermc.databaseutils.processor.query.QueryInfo;
-import org.geysermc.databaseutils.processor.type.RepositoryGenerator;
-import org.geysermc.databaseutils.processor.util.InvalidRepositoryException;
-import org.geysermc.databaseutils.processor.util.TypeUtils;
+public enum SectionType {
+    PROJECTION,
+    BY("By"),
+    ORDER_BY("Order", "By");
 
-final class DeleteAction extends Action {
-    DeleteAction() {
-        super("delete", true, true);
+    public static final SectionType[] VALUES = SectionType.values();
+    private final String[] sections;
+
+    SectionType(String... sections) {
+        this.sections = sections;
     }
 
-    @Override
-    protected void addToSingle(RepositoryGenerator generator, QueryInfo info, MethodSpec.Builder spec) {
-        generator.addDelete(info, spec);
+    public String[] sections() {
+        return sections;
     }
 
-    @Override
-    protected boolean validateSingle(
-            EntityInfo info, CharSequence methodName, TypeMirror returnType, TypeUtils typeUtils) {
-        // todo does it also support saying how many items were deleted?
-        if (!typeUtils.isType(Void.class, returnType)) {
-            throw new InvalidRepositoryException("Expected Void as return type for %s, got %s", methodName, returnType);
+    public static boolean isCorrectOrder(SectionType next, SectionType current) {
+        var nextIndex = indexFor(next);
+        var currentIndex = indexFor(current);
+        return nextIndex > currentIndex;
+    }
+
+    public static int indexFor(SectionType type) {
+        if (type == null) return -1;
+        for (int i = 0; i < VALUES.length; i++) {
+            if (VALUES[i] == type) {
+                return i;
+            }
         }
-        return true;
+        throw new IllegalStateException("Unrecognized section type: " + type);
     }
 }

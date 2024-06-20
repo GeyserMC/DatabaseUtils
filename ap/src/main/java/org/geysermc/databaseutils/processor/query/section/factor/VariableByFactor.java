@@ -25,11 +25,21 @@
 package org.geysermc.databaseutils.processor.query.section.factor;
 
 import org.checkerframework.checker.nullness.qual.NonNull;
-import org.geysermc.databaseutils.processor.query.section.by.MultiInputKeyword;
+import org.checkerframework.checker.nullness.qual.Nullable;
+import org.geysermc.databaseutils.processor.query.section.by.InputKeyword;
 import org.geysermc.databaseutils.processor.query.section.by.keyword.EqualsKeyword;
 
-public record VariableByFactor(@NonNull CharSequence name, @NonNull MultiInputKeyword keyword) implements Factor {
-    public VariableByFactor(CharSequence name) {
-        this(name, new EqualsKeyword());
+public record VariableByFactor(@NonNull CharSequence columnName, @NonNull InputKeyword keyword)
+        implements VariableFactor {
+    public VariableByFactor(@NonNull CharSequence columnName, @Nullable InputKeyword keyword) {
+        this.columnName = columnName;
+        if (keyword == null) {
+            keyword = new EqualsKeyword();
+        }
+        this.keyword = keyword;
+    }
+
+    public VariableByFactor(@NonNull CharSequence name) {
+        this(name, null);
     }
 }

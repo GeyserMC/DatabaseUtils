@@ -139,7 +139,7 @@ final class EntityManager {
             indexes.add(new IndexInfo("", keys.toArray(new CharSequence[0]), true));
         }
 
-        var entityInfo = new EntityInfo(tableName, type.getQualifiedName(), columns, indexes, keys);
+        var entityInfo = new EntityInfo(tableName, type, columns, indexes, keys);
         entityInfoByClassName.put(type.getQualifiedName(), entityInfo);
         return entityInfo;
     }

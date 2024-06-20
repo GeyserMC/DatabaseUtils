@@ -26,7 +26,64 @@ package org.geysermc.databaseutils.processor.query;
 
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.geysermc.databaseutils.processor.query.section.BySection;
-import org.geysermc.databaseutils.processor.query.section.order.OrderBySection;
+import org.geysermc.databaseutils.processor.query.section.OrderBySection;
+import org.geysermc.databaseutils.processor.query.section.ProjectionSection;
 
 public record KeywordsReadResult(
-        String actionName, boolean distinct, @Nullable BySection bySection, @Nullable OrderBySection orderBySection) {}
+        String actionName,
+        @Nullable ProjectionSection projection,
+        @Nullable BySection bySection,
+        @Nullable OrderBySection orderBySection) {
+
+    public static Builder builder() {
+        return new Builder();
+    }
+
+    public static final class Builder {
+        private ProjectionSection projection;
+        private BySection bySection;
+        private OrderBySection orderBySection;
+
+        private Builder() {}
+
+        public ProjectionSection projection() {
+            return projection;
+        }
+
+        public Builder projection(ProjectionSection projection) {
+            if (this.projection != null) {
+                throw new IllegalStateException("Cannot redefine projection!");
+            }
+            this.projection = projection;
+            return this;
+        }
+
+        public BySection bySection() {
+            return bySection;
+        }
+
+        public Builder bySection(BySection bySection) {
+            if (this.bySection != null) {
+                throw new IllegalStateException("Cannot redefine by section!");
+            }
+            this.bySection = bySection;
+            return this;
+        }
+
+        public OrderBySection orderBySection() {
+            return orderBySection;
+        }
+
+        public Builder orderBySection(OrderBySection orderBySection) {
+            if (this.orderBySection != null) {
+                throw new IllegalStateException("Cannot redefine orderBy section!");
+            }
+            this.orderBySection = orderBySection;
+            return this;
+        }
+
+        public KeywordsReadResult build(String actionName) {
+            return new KeywordsReadResult(actionName, projection, bySection, orderBySection);
+        }
+    }
+}

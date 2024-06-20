@@ -29,7 +29,7 @@ import java.util.List;
 /**
  * A keyword that only supports a single input
  */
-public abstract class SingleInputKeyword extends MultiInputKeyword {
+public abstract class SingleInputKeyword extends InputKeyword {
     /**
      * Returns the types the input supports
      */

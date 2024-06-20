@@ -24,22 +24,32 @@
  */
 package org.geysermc.databaseutils.processor.query;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.Stream;
-import javax.lang.model.element.ExecutableElement;
+import javax.lang.model.type.TypeMirror;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.geysermc.databaseutils.processor.info.ColumnInfo;
 import org.geysermc.databaseutils.processor.info.EntityInfo;
 import org.geysermc.databaseutils.processor.query.section.factor.Factor;
 import org.geysermc.databaseutils.processor.query.section.factor.VariableByFactor;
+import org.geysermc.databaseutils.processor.query.type.ParametersTypeInfo;
+import org.geysermc.databaseutils.processor.query.type.ReturnTypeInfo;
+import org.geysermc.databaseutils.processor.util.TypeUtils;
 
-public record QueryInfo(EntityInfo entityInfo, KeywordsReadResult result, ExecutableElement element) {
+public record QueryInfo(
+        EntityInfo entityInfo,
+        KeywordsReadResult result,
+        ParametersTypeInfo parametersInfo,
+        ReturnTypeInfo returnInfo,
+        TypeUtils typeUtils) {
+
     public String tableName() {
         return entityInfo.name();
     }
 
     public CharSequence entityType() {
-        return entityInfo.className();
+        return entityInfo.typeName();
     }
 
     public List<ColumnInfo> columns() {
@@ -63,14 +73,10 @@ public record QueryInfo(EntityInfo entityInfo, KeywordsReadResult result, Execut
         return result.bySection() != null ? result.bySection().factors() : null;
     }
 
-    public void requireBySection() {
-        if (bySectionFactors() == null || bySectionFactors().isEmpty()) {
-            throw new IllegalStateException("This query requires a By section");
-        }
-    }
-
     public List<VariableByFactor> byVariables() {
-        requireBySection();
+        if (bySectionFactors() == null) {
+            return Collections.emptyList();
+        }
 
         return bySectionFactors().stream()
                 .flatMap(section -> {
@@ -82,7 +88,7 @@ public record QueryInfo(EntityInfo entityInfo, KeywordsReadResult result, Execut
                 .toList();
     }
 
-    public CharSequence parameterName(int index) {
-        return element.getParameters().get(index).getSimpleName();
+    public TypeMirror returnType() {
+        return returnInfo.type();
     }
 }

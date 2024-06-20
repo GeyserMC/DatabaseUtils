@@ -25,34 +25,16 @@
 package org.geysermc.databaseutils.processor.action;
 
 import com.squareup.javapoet.MethodSpec;
-import javax.lang.model.element.TypeElement;
 import org.geysermc.databaseutils.processor.query.QueryInfo;
 import org.geysermc.databaseutils.processor.type.RepositoryGenerator;
-import org.geysermc.databaseutils.processor.util.InvalidRepositoryException;
-import org.geysermc.databaseutils.processor.util.TypeUtils;
 
 final class UpdateAction extends Action {
     UpdateAction() {
-        super("update");
+        super("update", true, true);
     }
 
     @Override
-    protected void addToSingle(
-            RepositoryGenerator generator,
-            QueryInfo info,
-            MethodSpec.Builder spec,
-            TypeElement returnType,
-            boolean async) {
-        generator.addUpdate(info, spec, returnType, async);
-    }
-
-    @Override
-    protected boolean validateEither(QueryInfo info, TypeElement returnType, boolean collection, TypeUtils typeUtils) {
-        if (!collection) {
-            return false;
-        }
-        throw new InvalidRepositoryException(
-                "Unsupported return type %s for %s",
-                returnType.getSimpleName(), info.element().getSimpleName());
+    protected void addToSingle(RepositoryGenerator generator, QueryInfo info, MethodSpec.Builder spec) {
+        generator.addUpdate(info, spec);
     }
 }

@@ -48,15 +48,15 @@ public abstract class RepositoryGenerator {
 
     protected void onConstructorBuilder(MethodSpec.Builder builder) {}
 
-    public abstract void addFind(QueryInfo info, MethodSpec.Builder spec, TypeElement returnType, boolean async);
+    public abstract void addFind(QueryInfo info, MethodSpec.Builder spec);
 
-    public abstract void addExists(QueryInfo info, MethodSpec.Builder spec, TypeElement returnType, boolean async);
+    public abstract void addExists(QueryInfo info, MethodSpec.Builder spec);
 
-    public abstract void addInsert(QueryInfo info, MethodSpec.Builder spec, TypeElement returnType, boolean async);
+    public abstract void addInsert(QueryInfo info, MethodSpec.Builder spec);
 
-    public abstract void addUpdate(QueryInfo info, MethodSpec.Builder spec, TypeElement returnType, boolean async);
+    public abstract void addUpdate(QueryInfo info, MethodSpec.Builder spec);
 
-    public abstract void addDelete(QueryInfo info, MethodSpec.Builder spec, TypeElement returnType, boolean async);
+    public abstract void addDelete(QueryInfo info, MethodSpec.Builder spec);
 
     public void init(TypeElement superType, EntityInfo entityInfo) {
         if (this.typeSpec != null) {

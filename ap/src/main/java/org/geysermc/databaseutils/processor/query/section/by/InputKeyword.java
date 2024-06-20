@@ -36,8 +36,10 @@ import org.geysermc.databaseutils.processor.util.TypeUtils;
 /**
  * A keyword that requires multiple inputs from the user.
  */
-public abstract class MultiInputKeyword implements Keyword {
+public abstract class InputKeyword {
     private final List<CharSequence> parameterNames = new ArrayList<>();
+
+    public abstract @NonNull List<@NonNull String> names();
 
     /**
      * Returns for each input it's supported types
@@ -96,7 +98,7 @@ public abstract class MultiInputKeyword implements Keyword {
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
-        MultiInputKeyword that = (MultiInputKeyword) o;
+        InputKeyword that = (InputKeyword) o;
         return Objects.equals(parameterNames, that.parameterNames);
     }
 

@@ -25,11 +25,17 @@
 package org.geysermc.databaseutils.processor.query.section.factor;
 
 import org.checkerframework.checker.nullness.qual.NonNull;
+import org.checkerframework.checker.nullness.qual.Nullable;
 import org.geysermc.databaseutils.processor.query.section.order.OrderDirection;
 
-public record VariableOrderByFactor(CharSequence name, OrderDirection direction) implements Factor {
-    public VariableOrderByFactor(@NonNull CharSequence name, @NonNull OrderDirection direction) {
-        this.name = name;
+public record VariableOrderByFactor(@NonNull CharSequence columnName, @NonNull OrderDirection direction)
+        implements VariableFactor {
+
+    public VariableOrderByFactor(@NonNull CharSequence columnName, @Nullable OrderDirection direction) {
+        this.columnName = columnName;
+        if (direction == null) {
+            direction = OrderDirection.DEFAULT;
+        }
         this.direction = direction;
     }
 }

@@ -10,6 +10,8 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -31,25 +33,84 @@ public final class BasicRepositorySqlImpl implements BasicRepository {
     }
 
     @Override
+    public CompletableFuture<List<TestEntity>> find() {
+        return CompletableFuture.supplyAsync(() -> {
+            try (Connection __connection = this.dataSource.getConnection()) {
+                try (PreparedStatement __statement = __connection.prepareStatement("select * from hello")) {
+                    try (ResultSet __result = __statement.executeQuery()) {
+                        List<TestEntity> __responses = new java.util.ArrayList<>();
+                        while (__result.next()) {
+                            Integer _a = __result.getInt("a");
+                            String _b = __result.getString("b");
+                            String _c = __result.getString("c");
+                            UUID _d = this.__d.decode(__result.getBytes("d"));
+                            __responses.add(new TestEntity(_a, _b, _c, _d));
+                        }
+                        return __responses;
+                    }
+                }
+            } catch (SQLException __exception) {
+                throw new CompletionException("Unexpected error occurred", __exception);
+            }
+        } , this.database.executorService());
+    }
+
+    @Override
     public CompletableFuture<TestEntity> findByAAndB(int aa, String b) {
         return CompletableFuture.supplyAsync(() -> {
-            try (Connection connection = dataSource.getConnection()) {
-                try (PreparedStatement statement = connection.prepareStatement("select * from hello where a=? and b=?")) {
-                    statement.setInt(1, aa);
-                    statement.setString(2, b);
-                    try (ResultSet result = statement.executeQuery()) {
-                        if (!result.next()) {
+            try (Connection __connection = this.dataSource.getConnection()) {
+                try (PreparedStatement __statement = __connection.prepareStatement("select * from hello where a=? and b=?")) {
+                    __statement.setInt(1, aa);
+                    __statement.setString(2, b);
+                    try (ResultSet __result = __statement.executeQuery()) {
+                        if (!__result.next()) {
                             return null;
                         }
-                        Integer _a = result.getInt("a");
-                        String _b = result.getString("b");
-                        String _c = result.getString("c");
-                        UUID _d = this.__d.decode(result.getBytes("d"));
+                        Integer _a = __result.getInt("a");
+                        String _b = __result.getString("b");
+                        String _c = __result.getString("c");
+                        UUID _d = this.__d.decode(__result.getBytes("d"));
                         return new TestEntity(_a, _b, _c, _d);
                     }
                 }
-            } catch (SQLException exception) {
-                throw new CompletionException("Unexpected error occurred", exception);
+            } catch (SQLException __exception) {
+                throw new CompletionException("Unexpected error occurred", __exception);
+            }
+        } , this.database.executorService());
+    }
+
+    @Override
+    public Set<TestEntity> find(Set<TestEntity> entities) {
+        try (Connection __connection = this.dataSource.getConnection()) {
+            try (PreparedStatement __statement = __connection.prepareStatement("select * from hello")) {
+                try (ResultSet __result = __statement.executeQuery()) {
+                    Set<TestEntity> __responses = new java.util.HashSet<>();
+                    while (__result.next()) {
+                        Integer _a = __result.getInt("a");
+                        String _b = __result.getString("b");
+                        String _c = __result.getString("c");
+                        UUID _d = this.__d.decode(__result.getBytes("d"));
+                        __responses.add(new TestEntity(_a, _b, _c, _d));
+                    }
+                    return __responses;
+                }
+            }
+        } catch (SQLException __exception) {
+            throw new CompletionException("Unexpected error occurred", __exception);
+        }
+    }
+
+    @Override
+    public CompletableFuture<Boolean> exists() {
+        return CompletableFuture.supplyAsync(() -> {
+            try (Connection __connection = this.dataSource.getConnection()) {
+                try (PreparedStatement __statement = __connection.prepareStatement("select 1 from hello")) {
+                    try (ResultSet __result = __statement.executeQuery()) {
+                        return __result.next();
+                    }
+                }
+            } catch (SQLException __exception) {
+                throw new CompletionException("Unexpected error occurred", __exception);
             }
         } , this.database.executorService());
     }
@@ -57,82 +118,161 @@ public final class BasicRepositorySqlImpl implements BasicRepository {
     @Override
     public CompletableFuture<Boolean> existsByAOrB(int a, String bb) {
         return CompletableFuture.supplyAsync(() -> {
-            try (Connection connection = dataSource.getConnection()) {
-                try (PreparedStatement statement = connection.prepareStatement("select 1 from hello where a=? or b=?")) {
-                    statement.setInt(1, a);
-                    statement.setString(2, bb);
-                    try (ResultSet result = statement.executeQuery()) {
-                        return result.next();
+            try (Connection __connection = this.dataSource.getConnection()) {
+                try (PreparedStatement __statement = __connection.prepareStatement("select 1 from hello where a=? or b=?")) {
+                    __statement.setInt(1, a);
+                    __statement.setString(2, bb);
+                    try (ResultSet __result = __statement.executeQuery()) {
+                        return __result.next();
                     }
                 }
-            } catch (SQLException exception) {
-                throw new CompletionException("Unexpected error occurred", exception);
+            } catch (SQLException __exception) {
+                throw new CompletionException("Unexpected error occurred", __exception);
             }
         } , this.database.executorService());
     }
 
     @Override
-    public TestEntity update(TestEntity entity) {
-        try (Connection connection = dataSource.getConnection()) {
-            try (PreparedStatement statement = connection.prepareStatement("update hello set c=?,d=? where a=? and b=?")) {
-                statement.setString(1, entity.c());
-                statement.setBytes(2, this.__d.encode(entity.d()));
-                statement.setInt(3, entity.a());
-                statement.setString(4, entity.b());
-                statement.executeUpdate();
-                return entity;
+    public void update(List<TestEntity> entity) {
+        try (Connection __connection = this.dataSource.getConnection()) {
+            try (PreparedStatement __statement = __connection.prepareStatement("update hello set c=?,d=? where a=? and b=?")) {
+                int __count = 0;
+                for (var __element : entity) {
+                    __statement.setString(1, __element.c());
+                    __statement.setBytes(2, this.__d.encode(__element.d()));
+                    __statement.setInt(3, __element.a());
+                    __statement.setString(4, __element.b());
+                    __statement.addBatch();
+                    if (__count % 250 == 0) {
+                        __statement.executeBatch();
+                    }
+                }
+                __statement.executeBatch();
+                __connection.commit();
+                return;
+            } catch (SQLException __exception) {
+                __connection.rollback();
+                throw __exception;
             }
-        } catch (SQLException exception) {
-            throw new CompletionException("Unexpected error occurred", exception);
+        } catch (SQLException __exception) {
+            throw new CompletionException("Unexpected error occurred", __exception);
+        }
+    }
+
+    @Override
+    public void update(TestEntity entity) {
+        try (Connection __connection = this.dataSource.getConnection()) {
+            try (PreparedStatement __statement = __connection.prepareStatement("update hello set c=?,d=? where a=? and b=?")) {
+                __statement.setString(1, entity.c());
+                __statement.setBytes(2, this.__d.encode(entity.d()));
+                __statement.setInt(3, entity.a());
+                __statement.setString(4, entity.b());
+                __statement.executeUpdate();
+                return;
+            }
+        } catch (SQLException __exception) {
+            throw new CompletionException("Unexpected error occurred", __exception);
         }
     }
 
     @Override
     public CompletableFuture<Void> insert(TestEntity entity) {
         return CompletableFuture.supplyAsync(() -> {
-            try (Connection connection = dataSource.getConnection()) {
-                try (PreparedStatement statement = connection.prepareStatement("insert into hello (a,b,c,d) values (?,?,?,?)")) {
-                    statement.setInt(1, entity.a());
-                    statement.setString(2, entity.b());
-                    statement.setString(3, entity.c());
-                    statement.setBytes(4, this.__d.encode(entity.d()));
-                    statement.executeUpdate();
+            try (Connection __connection = this.dataSource.getConnection()) {
+                try (PreparedStatement __statement = __connection.prepareStatement("insert into hello (a,b,c,d) values (?,?,?,?)")) {
+                    __statement.setInt(1, entity.a());
+                    __statement.setString(2, entity.b());
+                    __statement.setString(3, entity.c());
+                    __statement.setBytes(4, this.__d.encode(entity.d()));
+                    __statement.executeUpdate();
                     return null;
                 }
-            } catch (SQLException exception) {
-                throw new CompletionException("Unexpected error occurred", exception);
+            } catch (SQLException __exception) {
+                throw new CompletionException("Unexpected error occurred", __exception);
             }
         } , this.database.executorService());
+    }
+
+    @Override
+    public void insert(List<TestEntity> entities) {
+        try (Connection __connection = this.dataSource.getConnection()) {
+            try (PreparedStatement __statement = __connection.prepareStatement("insert into hello (a,b,c,d) values (?,?,?,?)")) {
+                int __count = 0;
+                for (var __element : entities) {
+                    __statement.setInt(1, __element.a());
+                    __statement.setString(2, __element.b());
+                    __statement.setString(3, __element.c());
+                    __statement.setBytes(4, this.__d.encode(__element.d()));
+                    __statement.addBatch();
+                    if (__count % 250 == 0) {
+                        __statement.executeBatch();
+                    }
+                }
+                __statement.executeBatch();
+                __connection.commit();
+                return ;
+            } catch (SQLException __exception) {
+                __connection.rollback();
+                throw __exception;
+            }
+        } catch (SQLException __exception) {
+            throw new CompletionException("Unexpected error occurred", __exception);
+        }
     }
 
     @Override
     public CompletableFuture<Void> delete(TestEntity entity) {
         return CompletableFuture.supplyAsync(() -> {
-            try (Connection connection = dataSource.getConnection()) {
-                try (PreparedStatement statement = connection.prepareStatement("delete from hello where a=? and b=?")) {
-                    statement.setInt(1, entity.a());
-                    statement.setString(2, entity.b());
-                    statement.executeUpdate();
+            try (Connection __connection = this.dataSource.getConnection()) {
+                try (PreparedStatement __statement = __connection.prepareStatement("delete from hello where a=? and b=?")) {
+                    __statement.setInt(1, entity.a());
+                    __statement.setString(2, entity.b());
+                    __statement.executeUpdate();
                     return null;
                 }
-            } catch (SQLException exception) {
-                throw new CompletionException("Unexpected error occurred", exception);
+            } catch (SQLException __exception) {
+                throw new CompletionException("Unexpected error occurred", __exception);
             }
         } , this.database.executorService());
     }
 
     @Override
+    public void delete(List<TestEntity> entities) {
+        try (Connection __connection = this.dataSource.getConnection()) {
+            try (PreparedStatement __statement = __connection.prepareStatement("delete from hello where a=? and b=?")) {
+                int __count = 0;
+                for (var __element : entities) {
+                    __statement.setInt(1, __element.a());
+                    __statement.setString(2, __element.b());
+                    __statement.addBatch();
+                    if (__count % 250 == 0) {
+                        __statement.executeBatch();
+                    }
+                }
+                __statement.executeBatch();
+                __connection.commit();
+                return ;
+            } catch (SQLException __exception) {
+                __connection.rollback();
+                throw __exception;
+            }
+        } catch (SQLException __exception) {
+            throw new CompletionException("Unexpected error occurred", __exception);
+        }
+    }
+
+    @Override
     public CompletableFuture<Void> deleteByAAndB(int a, String b) {
         return CompletableFuture.supplyAsync(() -> {
-            try (Connection connection = dataSource.getConnection()) {
-                try (PreparedStatement statement = connection.prepareStatement("delete from hello where a=? and b=?")) {
-                    statement.setInt(1, a);
-                    statement.setString(2, b);
-                    statement.executeUpdate();
+            try (Connection __connection = this.dataSource.getConnection()) {
+                try (PreparedStatement __statement = __connection.prepareStatement("delete from hello where a=? and b=?")) {
+                    __statement.setInt(1, a);
+                    __statement.setString(2, b);
+                    __statement.executeUpdate();
                     return null;
                 }
-            } catch (SQLException exception) {
-                throw new CompletionException("Unexpected error occurred", exception);
+            } catch (SQLException __exception) {
+                throw new CompletionException("Unexpected error occurred", __exception);
             }
         } , this.database.executorService());
     }

@@ -22,33 +22,27 @@
  * @author GeyserMC
  * @link https://github.com/GeyserMC/DatabaseUtils
  */
-package org.geysermc.databaseutils.processor.action;
+package org.geysermc.databaseutils.processor.query.section.projection;
 
-import com.squareup.javapoet.MethodSpec;
-import javax.lang.model.type.TypeMirror;
-import org.geysermc.databaseutils.processor.info.EntityInfo;
-import org.geysermc.databaseutils.processor.query.QueryInfo;
-import org.geysermc.databaseutils.processor.type.RepositoryGenerator;
-import org.geysermc.databaseutils.processor.util.InvalidRepositoryException;
-import org.geysermc.databaseutils.processor.util.TypeUtils;
+import java.util.Locale;
 
-final class DeleteAction extends Action {
-    DeleteAction() {
-        super("delete", true, true);
+public enum ProjectionKeywordCategory {
+    UNIQUE(false),
+    SUMMARY(true),
+    LIMIT(false);
+
+    private final boolean requiresColumn;
+
+    ProjectionKeywordCategory(boolean requiresColumn) {
+        this.requiresColumn = requiresColumn;
+    }
+
+    public boolean requiresColumn() {
+        return requiresColumn;
     }
 
     @Override
-    protected void addToSingle(RepositoryGenerator generator, QueryInfo info, MethodSpec.Builder spec) {
-        generator.addDelete(info, spec);
-    }
-
-    @Override
-    protected boolean validateSingle(
-            EntityInfo info, CharSequence methodName, TypeMirror returnType, TypeUtils typeUtils) {
-        // todo does it also support saying how many items were deleted?
-        if (!typeUtils.isType(Void.class, returnType)) {
-            throw new InvalidRepositoryException("Expected Void as return type for %s, got %s", methodName, returnType);
-        }
-        return true;
+    public String toString() {
+        return name().toLowerCase(Locale.ROOT);
     }
 }

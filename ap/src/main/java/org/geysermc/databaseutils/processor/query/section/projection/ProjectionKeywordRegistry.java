@@ -22,33 +22,39 @@
  * @author GeyserMC
  * @link https://github.com/GeyserMC/DatabaseUtils
  */
-package org.geysermc.databaseutils.processor.query.section.by;
+package org.geysermc.databaseutils.processor.query.section.projection;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Supplier;
-import org.checkerframework.checker.nullness.qual.NonNull;
+import java.util.regex.Pattern;
 import org.checkerframework.checker.nullness.qual.Nullable;
-import org.geysermc.databaseutils.processor.query.section.by.keyword.EqualsKeyword;
-import org.geysermc.databaseutils.processor.query.section.by.keyword.LessThanKeyword;
+import org.geysermc.databaseutils.processor.query.section.projection.keyword.AvgProjectionKeyword;
+import org.geysermc.databaseutils.processor.query.section.projection.keyword.DistinctProjectionKeyword;
+import org.geysermc.databaseutils.processor.query.section.projection.keyword.TopProjectionKeyword;
 
-public class InputKeywordRegistry {
-    private static final Map<String, Supplier<InputKeyword>> REGISTRY = new HashMap<>();
+public class ProjectionKeywordRegistry {
+    private static final Map<Pattern, Supplier<ProjectionKeyword>> REGISTRY = new HashMap<>();
 
-    public static @Nullable InputKeyword findByName(String keyword) {
-        var supplier = REGISTRY.get(keyword);
-        return supplier != null ? supplier.get() : null;
+    public static @Nullable ProjectionKeyword findByName(String keyword) {
+        for (var entry : REGISTRY.entrySet()) {
+            if (entry.getKey().matcher(keyword).matches()) {
+                var instance = entry.getValue().get();
+                instance.setValue(keyword);
+                return instance;
+            }
+        }
+        return null;
     }
 
-    private static void register(Supplier<InputKeyword> keywordSupplier) {
+    private static void register(Supplier<ProjectionKeyword> keywordSupplier) {
         var instance = keywordSupplier.get();
-        for (@NonNull String name : instance.names()) {
-            REGISTRY.put(name, keywordSupplier);
-        }
+        REGISTRY.put(Pattern.compile(instance.name()), keywordSupplier);
     }
 
     static {
-        register(EqualsKeyword::new);
-        register(LessThanKeyword::new);
+        register(DistinctProjectionKeyword::new);
+        register(AvgProjectionKeyword::new);
+        register(TopProjectionKeyword::new);
     }
 }

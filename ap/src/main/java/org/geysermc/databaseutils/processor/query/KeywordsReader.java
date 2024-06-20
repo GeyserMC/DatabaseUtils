@@ -28,16 +28,25 @@ import static org.geysermc.databaseutils.processor.util.CollectionUtils.join;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.BiFunction;
+import java.util.function.Function;
 import org.geysermc.databaseutils.processor.info.EntityInfo;
 import org.geysermc.databaseutils.processor.query.section.BySection;
 import org.geysermc.databaseutils.processor.query.section.FactorRegistry;
+import org.geysermc.databaseutils.processor.query.section.OrderBySection;
+import org.geysermc.databaseutils.processor.query.section.ProjectionSection;
+import org.geysermc.databaseutils.processor.query.section.SectionType;
 import org.geysermc.databaseutils.processor.query.section.by.InputKeywordRegistry;
 import org.geysermc.databaseutils.processor.query.section.factor.Factor;
+import org.geysermc.databaseutils.processor.query.section.factor.ProjectionFactor;
 import org.geysermc.databaseutils.processor.query.section.factor.VariableByFactor;
 import org.geysermc.databaseutils.processor.query.section.factor.VariableOrderByFactor;
-import org.geysermc.databaseutils.processor.query.section.order.OrderBySection;
 import org.geysermc.databaseutils.processor.query.section.order.OrderDirection;
+import org.geysermc.databaseutils.processor.query.section.projection.ProjectionKeyword;
+import org.geysermc.databaseutils.processor.query.section.projection.ProjectionKeywordRegistry;
+import org.geysermc.databaseutils.processor.util.InvalidRepositoryException;
 import org.geysermc.databaseutils.processor.util.StringUtils;
+import org.geysermc.databaseutils.processor.util.StringUtils.LargestMatchResult;
 
 public class KeywordsReader {
     private final String name;
@@ -70,182 +79,214 @@ public class KeywordsReader {
         // In this result uniqueId matches, after that we look for something to do with the data.
         // In this example there is nothing, so it'll default to the 'equals' keyword
 
-        String action = null;
-        boolean isOrderBy = false;
-        boolean hadOrder = false;
-
-        var bySections = new ArrayList<String>();
-        var orderBySections = new ArrayList<String>();
+        var sections = new ArrayList<String>();
         var workingSection = new StringBuilder();
 
         for (int i = 0; i < name.length(); i++) {
             char current = name.charAt(i);
 
             if (Character.isUpperCase(current)) {
-                var finishedSection = workingSection.toString();
+                sections.add(workingSection.toString());
                 workingSection = new StringBuilder();
-                var shouldAdd = true;
-
-                if (action == null) {
-                    action = finishedSection;
-                } else {
-                    if ("By".equals(finishedSection)) {
-                        if (hadOrder) {
-                            isOrderBy = true;
-                            hadOrder = false;
-                            shouldAdd = false;
-                            bySections.remove(bySections.size() - 1); // Remove Order
-                            if (!orderBySections.isEmpty()) {
-                                throw new IllegalStateException("Can only have one OrderBy definition!");
-                            }
-                        } else if (bySections.isEmpty()) {
-                            // usually it starts with By (e.g. findByUsername), so ignore it
-                            shouldAdd = false;
-                        }
-                    } else {
-                        hadOrder = "Order".equals(finishedSection);
-                    }
-
-                    if (shouldAdd) {
-                        if (isOrderBy) {
-                            orderBySections.add(finishedSection);
-                        } else {
-                            bySections.add(finishedSection);
-                        }
-                    }
-                }
             }
             workingSection.append(current);
         }
 
         if (!workingSection.isEmpty()) {
-            var finishedSection = workingSection.toString();
-            if (action == null) {
-                action = finishedSection;
-            } else {
-                if (isOrderBy) {
-                    orderBySections.add(finishedSection);
-                } else {
-                    bySections.add(finishedSection);
+            sections.add(workingSection.toString());
+        }
+
+        var action = sections.get(0);
+
+        if (sections.size() == 1) {
+            return new KeywordsReadResult(action, null, null, null);
+        }
+
+        var builder = KeywordsReadResult.builder();
+        var currentContext = new SectionContext(null, 1);
+        while ((currentContext = determineSection(sections, currentContext)).type != null) {
+            currentContext.offset = formSection(currentContext, sections, builder);
+        }
+
+        if (currentContext.offset != sections.size()) {
+            throw new InvalidRepositoryException(
+                    "Unexpected remaining input: %s. %s sections left",
+                    join(sections, currentContext.offset), sections.size() - currentContext.offset);
+        }
+
+        return builder.build(action);
+    }
+
+    private SectionContext determineSection(List<String> sections, SectionContext currentContext) {
+        var offset = currentContext.offset;
+        // make sure that 'find' also works
+        if (sections.size() == offset) {
+            return new SectionContext(null, offset);
+        }
+
+        SectionType[] types = SectionType.VALUES;
+        // Projection always matches, so try matching backwards
+        types:
+        for (int typeIndex = types.length - 1; typeIndex >= 0; typeIndex--) {
+            SectionType type = types[typeIndex];
+
+            if (offset + type.sections().length > sections.size()) {
+                continue;
+            }
+
+            for (int sectionIndex = 0; sectionIndex < type.sections().length; sectionIndex++) {
+                if (!sections.get(offset + sectionIndex).equals(type.sections()[sectionIndex])) {
+                    continue types;
                 }
             }
+
+            // make sure you can't redefine sections
+            if (SectionType.isCorrectOrder(type, currentContext.type)) {
+                return new SectionContext(type, offset + type.sections().length);
+            }
         }
 
-        return new KeywordsReadResult(action, false, formBySection(bySections), formOrderBySection(orderBySections));
+        return new SectionContext(null, offset);
     }
 
-    public BySection formBySection(List<String> sections) {
-        if (sections.isEmpty()) {
-            return null;
+    private int formSection(SectionContext context, List<String> sections, KeywordsReadResult.Builder builder) {
+        var offset = context.offset;
+        if (sections.size() == offset) {
+            return offset;
         }
-        var variables = new ArrayList<Factor>();
-        formBySections(sections, 0, variables);
-        return new BySection(variables);
+
+        var factors = new ArrayList<Factor>();
+        do {
+            offset = formSectionItem(context.type, sections, offset, factors);
+        } while (!isNextSection(sections, offset, context.type));
+
+        switch (context.type) {
+            case PROJECTION -> builder.projection(ProjectionSection.from(factors));
+            case BY -> builder.bySection(new BySection(factors));
+            case ORDER_BY -> builder.orderBySection(new OrderBySection(factors));
+        }
+        return offset;
     }
 
-    private void formBySections(List<String> bySections, int offset, List<Factor> factors) {
-        var variableMatch = StringUtils.largestMatch(bySections, offset, input -> {
-            var variableName = StringUtils.uncapitalize(input);
-            return variableNames.contains(variableName) ? variableName : null;
-        });
+    public boolean isNextSection(List<String> sections, int offset, SectionType currentSection) {
+        if (sections.size() == offset) {
+            return true;
+        }
+        var determinedType = determineSection(sections, new SectionContext(currentSection, offset)).type;
+        // projection matches on any var
+        return determinedType != null && determinedType != SectionType.PROJECTION;
+    }
 
-        if (variableMatch == null) {
-            var factor = FactorRegistry.factorFor(bySections.get(offset));
+    private int formSectionItem(SectionType type, List<String> sections, int offset, List<Factor> factors) {
+        // every section has a quite specific format:
+        // projection: keyword(s) - column name (either of them can be optional, not both)
+        // by: column name - optional keyword
+        // orderBy: column name - optional direction
+
+        if (type == null) {
+            throw new IllegalStateException(String.format(
+                    "Expected type to not be null! Remaining: %s. Offset: %s", join(sections, offset), offset));
+        }
+
+        if (type == SectionType.PROJECTION) {
+            ProjectionKeyword keyword;
+            var hadKeyword = false;
+            do {
+                keyword = ProjectionKeywordRegistry.findByName(sections.get(offset));
+                if (keyword != null) {
+                    hadKeyword = true;
+                    factors.add(new ProjectionFactor(keyword, null));
+                    offset++;
+                }
+            } while (keyword != null);
+
+            var variable = variableMatch(sections, offset);
+            if (variable == null) {
+                if (hadKeyword) {
+                    return offset;
+                }
+                throw new IllegalStateException(
+                        "Expected a projection, got nothing! Remaining: " + join(sections, offset - 1));
+            }
+            factors.add(new ProjectionFactor(null, variable.match()));
+            return variable.offset() + 1;
+        }
+
+        var variable = variableMatch(sections, offset);
+        if (variable == null) {
+            var factor = FactorRegistry.factorFor(sections.get(offset));
             if (factor == null) {
                 throw new IllegalStateException(
-                        "Expected a variable to match, but none did for " + join(bySections, offset));
+                        "Expected a variable to match, but none did for " + join(sections, offset));
             }
             factors.add(factor);
-            // After a factor was found, restart the process to follow the correct variable -> keyword format
-            formBySections(bySections, offset + 1, factors);
-            return;
+            return offset + 1;
         }
 
-        // findByUsername = username, no keywords after the variable
-        if (variableMatch.offset() + 1 == bySections.size()) {
-            factors.add(new VariableByFactor(variableMatch.match()));
-            return;
+        return switch (type) {
+            case BY -> createNormal(
+                    type, sections, variable, factors, VariableByFactor::new, InputKeywordRegistry::findByName, true);
+            case ORDER_BY -> createNormal(
+                    type, sections, variable, factors, VariableOrderByFactor::new, OrderDirection::byName, false);
+            default -> throw new IllegalStateException("Unexpected value: " + type);
+        };
+    }
+
+    private <T> int createNormal(
+            SectionType type,
+            List<String> sections,
+            LargestMatchResult<String> variable,
+            List<Factor> factors,
+            BiFunction<String, T, Factor> creator,
+            Function<String, T> matcher,
+            boolean largest) {
+        // specifying a direction / keyword is optional
+        if (variable.offset() + 1 == sections.size() || isNextSection(sections, variable.offset() + 1, type)) {
+            factors.add(creator.apply(variable.match(), null));
+            return variable.offset() + 1;
         }
 
-        // findByUsernameIsNotNull = IsNotNull
-        var keywordMatch =
-                StringUtils.largestMatch(bySections, variableMatch.offset() + 1, InputKeywordRegistry::findByName);
-        if (keywordMatch == null) {
-            var factor = FactorRegistry.factorFor(bySections.get(variableMatch.offset() + 1));
+        LargestMatchResult<T> keyword;
+        if (largest) {
+            keyword = StringUtils.largestMatch(sections, variable.offset() + 1, matcher);
+        } else {
+            var newIndex = variable.offset() + 1;
+            var result = matcher.apply(sections.get(newIndex));
+            keyword = result == null ? null : new LargestMatchResult<>(result, newIndex);
+        }
+
+        if (keyword == null) {
+            var factor = FactorRegistry.factorFor(sections.get(variable.offset() + 1));
             if (factor == null) {
-                throw new IllegalStateException(
-                        "Expected a keyword to match for " + join(bySections, variableMatch.offset()));
+                throw new IllegalStateException("Expected a keyword to match for " + join(sections, variable.offset()));
             }
 
-            // just like above, if no keyword is provided, assume equals
-            factors.add(new VariableByFactor(variableMatch.match()));
+            // just like above, if no keyword is provided, use the default
+            factors.add(creator.apply(variable.match(), null));
             factors.add(factor);
 
             // We have to assume that after the factor something comes next
-            formBySections(bySections, variableMatch.offset() + 2, factors);
-            return;
+            return variable.offset() + 2;
         }
 
-        factors.add(new VariableByFactor(variableMatch.match(), keywordMatch.match()));
-        if (keywordMatch.offset() + 1 < bySections.size()) {
-            formBySections(bySections, keywordMatch.offset() + 1, factors);
-        }
+        factors.add(creator.apply(variable.match(), keyword.match()));
+        return keyword.offset() + 1;
     }
 
-    public OrderBySection formOrderBySection(List<String> sections) {
-        if (sections.isEmpty()) {
-            return null;
-        }
-        var variables = new ArrayList<Factor>();
-        formOrderBySections(sections, 0, variables);
-        return new OrderBySection(variables);
-    }
-
-    private void formOrderBySections(List<String> orderBySections, int offset, List<Factor> factors) {
-        var variableMatch = StringUtils.largestMatch(orderBySections, offset, input -> {
+    private LargestMatchResult<String> variableMatch(List<String> sections, int offset) {
+        return StringUtils.largestMatch(sections, offset, input -> {
             var variableName = StringUtils.uncapitalize(input);
             return variableNames.contains(variableName) ? variableName : null;
         });
+    }
 
-        if (variableMatch == null) {
-            var factor = FactorRegistry.factorFor(orderBySections.get(offset));
-            if (factor == null) {
-                throw new IllegalStateException(
-                        "Expected a variable to match, but none did for " + join(orderBySections, offset));
-            }
-            factors.add(factor);
-            // After a factor was found restart the process to follow the correct variable -> direction format
-            formOrderBySections(orderBySections, offset + 1, factors);
-            return;
-        }
+    private static final class SectionContext {
+        private final SectionType type;
+        private int offset;
 
-        // use the default direction if none is provided
-        if (variableMatch.offset() + 1 == orderBySections.size()) {
-            factors.add(new VariableOrderByFactor(variableMatch.match(), OrderDirection.DEFAULT));
-            return;
-        }
-
-        var directionString = StringUtils.uncapitalize(orderBySections.get(variableMatch.offset() + 1));
-        var direction = OrderDirection.byName(directionString);
-        if (direction == null) {
-            var factor = FactorRegistry.factorFor(orderBySections.get(variableMatch.offset() + 1));
-            if (factor == null) {
-                throw new IllegalStateException("Unknown order by direction " + directionString);
-            }
-
-            // just like above, if no direction is provided, use default
-            factors.add(new VariableOrderByFactor(variableMatch.match(), OrderDirection.DEFAULT));
-            factors.add(factor);
-
-            // We have to assume that after the factor something comes next
-            formOrderBySections(orderBySections, variableMatch.offset() + 2, factors);
-            return;
-        }
-
-        factors.add(new VariableOrderByFactor(variableMatch.match(), direction));
-        // +2 because of the direction
-        if (variableMatch.offset() + 2 < orderBySections.size()) {
-            formOrderBySections(orderBySections, variableMatch.offset() + 2, factors);
+        SectionContext(SectionType type, int offset) {
+            this.type = type;
+            this.offset = offset;
         }
     }
 }

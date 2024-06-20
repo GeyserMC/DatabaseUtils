@@ -25,6 +25,7 @@
 package org.geysermc.databaseutils.processor.query.section.order;
 
 import java.util.List;
+import java.util.Locale;
 
 public enum OrderDirection {
     ASCENDING("asc", "ascending"),
@@ -40,6 +41,7 @@ public enum OrderDirection {
     }
 
     public static OrderDirection byName(String name) {
+        name = name.toLowerCase(Locale.ROOT);
         for (OrderDirection value : VALUES) {
             if (value.names.contains(name)) {
                 return value;
