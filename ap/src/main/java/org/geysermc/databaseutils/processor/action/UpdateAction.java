@@ -25,16 +25,16 @@
 package org.geysermc.databaseutils.processor.action;
 
 import com.squareup.javapoet.MethodSpec;
-import org.geysermc.databaseutils.processor.query.QueryInfo;
+import org.geysermc.databaseutils.processor.query.QueryContext;
 import org.geysermc.databaseutils.processor.type.RepositoryGenerator;
 
 final class UpdateAction extends Action {
     UpdateAction() {
-        super("update", true, true);
+        super("update", true, true, true, true);
     }
 
     @Override
-    protected void addToSingle(RepositoryGenerator generator, QueryInfo info, MethodSpec.Builder spec) {
-        generator.addUpdate(info, spec);
+    protected void addToSingle(RepositoryGenerator generator, QueryContext context, MethodSpec.Builder spec) {
+        generator.addUpdate(context, spec);
     }
 }

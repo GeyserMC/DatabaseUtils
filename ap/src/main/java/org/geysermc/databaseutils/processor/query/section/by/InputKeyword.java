@@ -90,6 +90,10 @@ public abstract class InputKeyword {
         return parameterNames;
     }
 
+    public boolean isIncomplete() {
+        return parameterNames.size() != inputCount();
+    }
+
     public void addParameterName(@NonNull CharSequence parameterName) {
         parameterNames.add(parameterName);
     }

@@ -27,7 +27,7 @@ package org.geysermc.databaseutils.processor.action;
 import com.squareup.javapoet.MethodSpec;
 import javax.lang.model.type.TypeMirror;
 import org.geysermc.databaseutils.processor.info.EntityInfo;
-import org.geysermc.databaseutils.processor.query.QueryInfo;
+import org.geysermc.databaseutils.processor.query.QueryContext;
 import org.geysermc.databaseutils.processor.query.section.projection.ProjectionKeywordCategory;
 import org.geysermc.databaseutils.processor.type.RepositoryGenerator;
 import org.geysermc.databaseutils.processor.util.InvalidRepositoryException;
@@ -35,7 +35,7 @@ import org.geysermc.databaseutils.processor.util.TypeUtils;
 
 final class ExistsAction extends Action {
     ExistsAction() {
-        super("exists", false, true, ProjectionKeywordCategory.UNIQUE);
+        super("exists", false, false, false, true, ProjectionKeywordCategory.UNIQUE);
     }
 
     @Override
@@ -49,7 +49,7 @@ final class ExistsAction extends Action {
     }
 
     @Override
-    public void addToSingle(RepositoryGenerator generator, QueryInfo info, MethodSpec.Builder spec) {
-        generator.addExists(info, spec);
+    public void addToSingle(RepositoryGenerator generator, QueryContext context, MethodSpec.Builder spec) {
+        generator.addExists(context, spec);
     }
 }

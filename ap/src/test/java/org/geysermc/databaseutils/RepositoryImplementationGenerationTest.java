@@ -36,4 +36,9 @@ class RepositoryImplementationGenerationTest {
     void testBasicCompilation() {
         testCompilation("test/basic/", "BasicRepository");
     }
+
+    @Test
+    void testAdvancedCompilation() {
+        testCompilation("test/advanced/", "AdvancedRepository");
+    }
 }

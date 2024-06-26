@@ -26,7 +26,6 @@ package org.geysermc.databaseutils.processor.query;
 
 import com.google.auto.common.MoreTypes;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -51,10 +50,10 @@ import org.geysermc.databaseutils.processor.util.InvalidRepositoryException;
 import org.geysermc.databaseutils.processor.util.TypeUtils;
 
 /**
- * Analyses and validates the read Keywords and converts it into QueryInfo.
+ * Analyses and validates the read Keywords and converts it into QueryContext.
  * Note that this will edit the provided readResult. It doesn't create a new instance.
  */
-public class QueryInfoCreator {
+public class QueryContextCreator {
     private final Action action;
     private final KeywordsReadResult readResult;
     private final ExecutableElement element;
@@ -63,9 +62,8 @@ public class QueryInfoCreator {
 
     private final TypeMirror returnType;
     private final boolean async;
-    private final boolean isCollection;
 
-    public QueryInfoCreator(
+    public QueryContextCreator(
             Action action,
             KeywordsReadResult readResult,
             ExecutableElement element,
@@ -89,25 +87,23 @@ public class QueryInfoCreator {
 
         this.returnType = returnType;
         this.async = async;
-        this.isCollection = returnType != null && typeUtils.isAssignable(returnType, Collection.class);
     }
 
-    public QueryInfo create() {
-        analyseAndValidate();
-        return new QueryInfo(
-                info,
-                readResult,
-                new ParametersTypeInfo(element, info.typeName(), typeUtils),
-                new ReturnTypeInfo(async, returnType, typeUtils),
-                typeUtils);
+    public QueryContext create() {
+        var parameterInfo = analyseValidateAndCreate();
+        return new QueryContext(
+                info, readResult, parameterInfo, new ReturnTypeInfo(async, returnType, typeUtils), typeUtils);
     }
 
-    private void analyseAndValidate() {
+    private ParametersTypeInfo analyseValidateAndCreate() {
         var parameterTypes =
                 element.getParameters().stream().map(VariableElement::asType).toList();
         var parameterNames = element.getParameters().stream()
                 .map(VariableElement::getSimpleName)
                 .toList();
+
+        var parameterInfo = new ParametersTypeInfo(element, info.typeName(), typeUtils);
+
         AtomicInteger handledInputs = new AtomicInteger();
 
         if (readResult.projection() != null) {
@@ -115,9 +111,11 @@ public class QueryInfoCreator {
 
             var handledCategories = new ArrayList<ProjectionKeywordCategory>();
             for (@NonNull ProjectionFactor projection : readResult.projection().projections()) {
+                // ignore columnName factor
                 if (projection.keyword() == null) {
                     continue;
                 }
+
                 var category = projection.keyword().category();
                 if (!handledCategories.add(category)) {
                     throw new InvalidRepositoryException(
@@ -129,6 +127,10 @@ public class QueryInfoCreator {
                             "Projection %s requires you to specify a column",
                             projection.keyword().name());
                 }
+            }
+
+            if (action.projectionColumnIsParameter()) {
+                handledInputs.incrementAndGet();
             }
         }
 
@@ -150,10 +152,14 @@ public class QueryInfoCreator {
 
         // if there is no By section and there are parameters, it should be the entity or the provided projection
         if (readResult.bySection() == null && parameterTypes.size() == 1) {
-            if (typeUtils.isAssignable(parameterTypes.get(0), Collection.class)
-                    && !action.allowSelfCollectionArgument()) {
+            if (parameterInfo.isAnySelf() && !action.allowSelfParameter()) {
                 throw new InvalidRepositoryException(
-                        "Action %s (for %s) doesn't support return a collection!",
+                        "Action %s (for %s) doesn't support entity as parameter!",
+                        action.actionType(), element.getSimpleName());
+            }
+            if (parameterInfo.isSelfCollection() && !action.allowReturnSelfCollection()) {
+                throw new InvalidRepositoryException(
+                        "Action %s (for %s) doesn't support returning an entity collection!",
                         action.actionType(), element.getSimpleName());
             }
 
@@ -168,12 +174,12 @@ public class QueryInfoCreator {
                                     element.getSimpleName(), column.typeName());
                         }
                     });
-                    return;
+                    return parameterInfo;
                 }
             }
 
             action.validate(info, element.getSimpleName(), returnType, typeUtils, null);
-            return;
+            return parameterInfo;
         }
 
         // Otherwise the expected parameter count should equal the actual
@@ -181,6 +187,7 @@ public class QueryInfoCreator {
             throw new IllegalStateException(
                     "Expected %s parameters, received %s".formatted(handledInputs, parameterTypes));
         }
+        return parameterInfo;
     }
 
     private <T extends VariableFactor> void validateColumnNames(

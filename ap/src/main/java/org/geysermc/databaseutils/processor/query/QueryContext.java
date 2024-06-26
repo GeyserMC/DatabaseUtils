@@ -31,13 +31,14 @@ import javax.lang.model.type.TypeMirror;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.geysermc.databaseutils.processor.info.ColumnInfo;
 import org.geysermc.databaseutils.processor.info.EntityInfo;
+import org.geysermc.databaseutils.processor.query.section.ProjectionSection;
 import org.geysermc.databaseutils.processor.query.section.factor.Factor;
 import org.geysermc.databaseutils.processor.query.section.factor.VariableByFactor;
 import org.geysermc.databaseutils.processor.query.type.ParametersTypeInfo;
 import org.geysermc.databaseutils.processor.query.type.ReturnTypeInfo;
 import org.geysermc.databaseutils.processor.util.TypeUtils;
 
-public record QueryInfo(
+public record QueryContext(
         EntityInfo entityInfo,
         KeywordsReadResult result,
         ParametersTypeInfo parametersInfo,
@@ -90,5 +91,9 @@ public record QueryInfo(
 
     public TypeMirror returnType() {
         return returnInfo.type();
+    }
+
+    public ProjectionSection projection() {
+        return result.projection();
     }
 }

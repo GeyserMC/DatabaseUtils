@@ -11,7 +11,6 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.List;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -56,12 +55,11 @@ public final class BasicRepositorySqlImpl implements BasicRepository {
     }
 
     @Override
-    public CompletableFuture<TestEntity> findByAAndB(int aa, String b) {
+    public CompletableFuture<TestEntity> findByA(int a) {
         return CompletableFuture.supplyAsync(() -> {
             try (Connection __connection = this.dataSource.getConnection()) {
-                try (PreparedStatement __statement = __connection.prepareStatement("select * from hello where a=? and b=?")) {
-                    __statement.setInt(1, aa);
-                    __statement.setString(2, b);
+                try (PreparedStatement __statement = __connection.prepareStatement("select * from hello where a=?")) {
+                    __statement.setInt(1, a);
                     try (ResultSet __result = __statement.executeQuery()) {
                         if (!__result.next()) {
                             return null;
@@ -80,27 +78,6 @@ public final class BasicRepositorySqlImpl implements BasicRepository {
     }
 
     @Override
-    public Set<TestEntity> find(Set<TestEntity> entities) {
-        try (Connection __connection = this.dataSource.getConnection()) {
-            try (PreparedStatement __statement = __connection.prepareStatement("select * from hello")) {
-                try (ResultSet __result = __statement.executeQuery()) {
-                    Set<TestEntity> __responses = new java.util.HashSet<>();
-                    while (__result.next()) {
-                        Integer _a = __result.getInt("a");
-                        String _b = __result.getString("b");
-                        String _c = __result.getString("c");
-                        UUID _d = this.__d.decode(__result.getBytes("d"));
-                        __responses.add(new TestEntity(_a, _b, _c, _d));
-                    }
-                    return __responses;
-                }
-            }
-        } catch (SQLException __exception) {
-            throw new CompletionException("Unexpected error occurred", __exception);
-        }
-    }
-
-    @Override
     public CompletableFuture<Boolean> exists() {
         return CompletableFuture.supplyAsync(() -> {
             try (Connection __connection = this.dataSource.getConnection()) {
@@ -116,12 +93,11 @@ public final class BasicRepositorySqlImpl implements BasicRepository {
     }
 
     @Override
-    public CompletableFuture<Boolean> existsByAOrB(int a, String bb) {
+    public CompletableFuture<Boolean> existsByB(String b) {
         return CompletableFuture.supplyAsync(() -> {
             try (Connection __connection = this.dataSource.getConnection()) {
-                try (PreparedStatement __statement = __connection.prepareStatement("select 1 from hello where a=? or b=?")) {
-                    __statement.setInt(1, a);
-                    __statement.setString(2, bb);
+                try (PreparedStatement __statement = __connection.prepareStatement("select 1 from hello where b=?")) {
+                    __statement.setString(1, b);
                     try (ResultSet __result = __statement.executeQuery()) {
                         return __result.next();
                     }

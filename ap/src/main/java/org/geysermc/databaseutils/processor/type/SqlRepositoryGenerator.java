@@ -38,13 +38,11 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 import java.util.concurrent.CompletionException;
 import java.util.function.Supplier;
 import javax.lang.model.element.Modifier;
-import org.checkerframework.checker.nullness.qual.NonNull;
 import org.geysermc.databaseutils.processor.info.ColumnInfo;
-import org.geysermc.databaseutils.processor.query.QueryInfo;
+import org.geysermc.databaseutils.processor.query.QueryContext;
 import org.geysermc.databaseutils.processor.query.section.by.keyword.EqualsKeyword;
 import org.geysermc.databaseutils.processor.query.section.by.keyword.LessThanKeyword;
 import org.geysermc.databaseutils.processor.query.section.factor.AndFactor;
@@ -54,10 +52,14 @@ import org.geysermc.databaseutils.processor.query.section.factor.VariableByFacto
 import org.geysermc.databaseutils.processor.query.section.projection.ProjectionKeyword;
 import org.geysermc.databaseutils.processor.query.section.projection.keyword.AvgProjectionKeyword;
 import org.geysermc.databaseutils.processor.query.section.projection.keyword.TopProjectionKeyword;
+import org.geysermc.databaseutils.processor.type.sql.QueryBuilder;
+import org.geysermc.databaseutils.processor.type.sql.QueryBuilder.QueryBuilderColumn;
 import org.geysermc.databaseutils.processor.util.InvalidRepositoryException;
 import org.geysermc.databaseutils.processor.util.TypeUtils;
 
 public class SqlRepositoryGenerator extends RepositoryGenerator {
+    private static final int BATCH_SIZE = 250;
+
     @Override
     protected String upperCamelCaseDatabaseType() {
         return "Sql";
@@ -70,18 +72,19 @@ public class SqlRepositoryGenerator extends RepositoryGenerator {
     }
 
     @Override
-    public void addFind(QueryInfo info, MethodSpec.Builder spec) {
-        var query = "select %s from %s".formatted(createProjectionFor(info), info.tableName());
-        if (info.hasBySection()) {
-            query += " where %s".formatted(createWhereForAll(info));
+    public void addFind(QueryContext context, MethodSpec.Builder spec) {
+        var builder = new QueryBuilder(context)
+                .addRaw("select %s from %s", createProjectionFor(context), context.tableName());
+        if (context.hasBySection()) {
+            builder.add("where %s", this::createWhereForFactors);
         }
 
-        addExecuteQueryData(spec, query, info, () -> {
-            if (info.returnInfo().isCollection()) {
+        addExecuteQueryData(spec, context, builder, () -> {
+            if (context.returnInfo().isCollection()) {
                 spec.addStatement(
                         "$T __responses = new $L<>()",
-                        info.returnType(),
-                        info.typeUtils().collectionImplementationFor(info.returnType()));
+                        context.returnType(),
+                        context.typeUtils().collectionImplementationFor(context.returnType()));
                 spec.beginControlFlow("while (__result.next())");
             } else {
                 spec.beginControlFlow("if (!__result.next())");
@@ -90,7 +93,7 @@ public class SqlRepositoryGenerator extends RepositoryGenerator {
             }
 
             var arguments = new ArrayList<String>();
-            for (ColumnInfo column : info.columns()) {
+            for (ColumnInfo column : context.columns()) {
                 var columnType = ClassName.bestGuess(column.typeName().toString());
 
                 var getFormat = jdbcGetFor(column.typeName(), "__result.%s(%s)");
@@ -103,137 +106,148 @@ public class SqlRepositoryGenerator extends RepositoryGenerator {
                 arguments.add("_" + column.name());
             }
 
-            if (info.returnInfo().isCollection()) {
+            if (context.returnInfo().isCollection()) {
                 spec.addStatement(
                         "__responses.add(new $T($L))",
-                        ClassName.bestGuess(info.entityType().toString()),
+                        ClassName.bestGuess(context.entityType().toString()),
                         String.join(", ", arguments));
                 spec.endControlFlow();
                 spec.addStatement("return __responses");
             } else {
                 spec.addStatement(
                         "return new $T($L)",
-                        ClassName.bestGuess(info.entityType().toString()),
+                        ClassName.bestGuess(context.entityType().toString()),
                         String.join(", ", arguments));
             }
         });
     }
 
     @Override
-    public void addExists(QueryInfo info, MethodSpec.Builder spec) {
-        var query = "select 1 from %s".formatted(info.tableName());
-        if (info.hasBySection()) {
-            query += " where %s".formatted(createWhereForAll(info));
+    public void addExists(QueryContext context, MethodSpec.Builder spec) {
+        var builder = new QueryBuilder(context).addRaw("select 1 from %s", context.tableName());
+        if (context.hasBySection()) {
+            builder.add("where %s", this::createWhereForFactors);
         }
-        addExecuteQueryData(spec, query, info, () -> spec.addStatement("return __result.next()"));
+        addExecuteQueryData(spec, context, builder, () -> spec.addStatement("return __result.next()"));
     }
 
     @Override
-    public void addInsert(QueryInfo info, MethodSpec.Builder spec) {
-        var columnNames =
-                String.join(",", info.columns().stream().map(ColumnInfo::name).toList());
-        var columnParameters = String.join(",", repeat("?", info.columns().size()));
-        var query = "insert into %s (%s) values (%s)".formatted(info.tableName(), columnNames, columnParameters);
-        addUpdateQueryData(spec, query, info, info.columns());
+    public void addInsert(QueryContext context, MethodSpec.Builder spec) {
+        var columnNames = String.join(
+                ",", context.columns().stream().map(ColumnInfo::name).toList());
+        var columnParameters = String.join(",", repeat("?", context.columns().size()));
+
+        var builder = new QueryBuilder(context)
+                .addRaw("insert into %s (%s) values (%s)", context.tableName(), columnNames, columnParameters)
+                .addAll(context.columns());
+        addUpdateQueryData(spec, context, builder);
     }
 
     @Override
-    public void addUpdate(QueryInfo info, MethodSpec.Builder spec) {
-        // todo make it work with By section
-        var query =
-                "update %s set %s where %s".formatted(info.tableName(), createSetFor(info), createWhereForKeys(info));
-        addUpdateQueryData(spec, query, info, info.entityInfo().notKeyFirstColumns());
-    }
+    public void addUpdate(QueryContext context, MethodSpec.Builder spec) {
+        var builder = new QueryBuilder(context)
+                .addRaw("update %s", context.tableName())
+                .add("set %s", this::createSetFor);
 
-    @Override
-    public void addDelete(QueryInfo info, MethodSpec.Builder spec) {
-        if (info.hasBySection()) {
-            var query = "delete from %s where %s".formatted(info.tableName(), createWhereForAll(info));
-            addUpdateQueryData(spec, query, info);
-            return;
+        if (context.hasBySection()) {
+            builder.add("where %s", this::createWhereForFactors);
+        } else {
+            builder.add("where %s", this::createWhereForKeys);
         }
-
-        var query = "delete from %s where %s".formatted(info.tableName(), createWhereForKeys(info));
-        addUpdateQueryData(spec, query, info, info.entityInfo().keyColumns());
+        addUpdateQueryData(spec, context, builder);
     }
 
-    private void addExecuteQueryData(MethodSpec.Builder spec, String query, QueryInfo info, Runnable content) {
-        addBySectionData(spec, query, info, () -> {
+    @Override
+    public void addDelete(QueryContext context, MethodSpec.Builder spec) {
+        var builder = new QueryBuilder(context).addRaw("delete from %s", context.tableName());
+        if (context.hasBySection()) {
+            builder.add("where %s", this::createWhereForFactors);
+        } else {
+            builder.add("where %s", this::createWhereForKeys);
+        }
+        addUpdateQueryData(spec, context, builder);
+    }
+
+    private void addExecuteQueryData(
+            MethodSpec.Builder spec, QueryContext context, QueryBuilder builder, Runnable content) {
+        addBySectionData(spec, context, builder, () -> {
             spec.beginControlFlow("try ($T __result = __statement.executeQuery())", ResultSet.class);
             content.run();
             spec.endControlFlow();
         });
     }
 
-    private void addUpdateQueryData(MethodSpec.Builder spec, String query, QueryInfo info) {
-        addBySectionData(spec, query, info, () -> {
-            spec.addStatement("__statement.executeUpdate()");
-            if (info.typeUtils().isType(Void.class, info.returnType())) {
-                spec.addStatement("return " + (info.returnInfo().async() ? "null" : ""));
-            } else if (info.typeUtils().isType(info.entityType(), info.returnType())) {
+    private void addUpdateQueryData(MethodSpec.Builder spec, QueryContext context, QueryBuilder builder) {
+        addBySectionData(spec, context, builder, () -> {
+            if (!context.parametersInfo().isSelfCollection()) {
+                spec.addStatement("__statement.executeUpdate()");
+            }
+
+            if (context.typeUtils().isType(Void.class, context.returnType())) {
+                spec.addStatement("return $L", context.returnInfo().async() ? "null" : "");
+            } else if (context.typeUtils().isType(context.entityType(), context.returnType())) {
                 // todo support also creating an entity type from the given parameters
-                spec.addStatement("return $L", info.parametersInfo().name(0));
+                spec.addStatement("return $L", context.parametersInfo().name(0));
             } else {
                 throw new InvalidRepositoryException(
-                        "Return type can be either void or %s but got %s", info.entityType(), info.returnType());
+                        "Return type can be either void or %s but got %s", context.entityType(), context.returnType());
             }
         });
     }
 
-    private void addUpdateQueryData(MethodSpec.Builder spec, String query, QueryInfo info, List<ColumnInfo> columns) {
-        wrapInCompletableFuture(spec, info.returnInfo().async(), () -> {
+    private void addBySectionData(
+            MethodSpec.Builder spec, QueryContext context, QueryBuilder builder, Runnable execute) {
+
+        wrapInCompletableFuture(spec, context.returnInfo().async(), () -> {
             spec.beginControlFlow("try ($T __connection = this.dataSource.getConnection())", Connection.class);
             spec.beginControlFlow(
-                    "try ($T __statement = __connection.prepareStatement($S))", PreparedStatement.class, query);
+                    "try ($T __statement = __connection.prepareStatement($S))",
+                    PreparedStatement.class,
+                    builder.query());
 
-            var parameterName = info.parametersInfo().name(0);
+            CharSequence parameterName = "";
+            if (context.parametersInfo().hasParameters()) {
+                parameterName = context.parametersInfo().name(0);
+            }
 
-            if (info.parametersInfo().isSelfCollection()) {
+            if (context.parametersInfo().isSelfCollection()) {
                 spec.addStatement("int __count = 0");
                 spec.beginControlFlow("for (var __element : $L)", parameterName);
                 parameterName = "__element";
             }
 
-            // if it doesn't have a By section, we add all the requested columns
             int variableIndex = 0;
-            for (ColumnInfo column : columns) {
-                var columnName = column.name();
-                var columnType = column.typeName();
+            for (QueryBuilderColumn column : builder.columns()) {
+                var columnInfo = column.info();
 
-                var input = "%s.%s()".formatted(parameterName, columnName);
-                if (TypeUtils.needsTypeCodec(columnType)) {
-                    input = CodeBlock.of("this.__$L.encode($L)", columnName, input)
+                CharSequence input = "%s.%s()".formatted(parameterName, columnInfo.name());
+                if (column.parameterName() != null) {
+                    input = column.parameterName();
+                }
+
+                if (TypeUtils.needsTypeCodec(columnInfo.typeName())) {
+                    input = CodeBlock.of("this.__$L.encode($L)", columnInfo.name(), input)
                             .toString();
                 }
                 // jdbc index starts at 1
-                spec.addStatement(jdbcSetFor(columnType, "__statement.%s($L, $L)"), ++variableIndex, input);
+                spec.addStatement(jdbcSetFor(columnInfo.typeName(), "__statement.%s($L, $L)"), ++variableIndex, input);
             }
 
-            if (info.parametersInfo().isSelfCollection()) {
+            if (context.parametersInfo().isSelfCollection()) {
                 spec.addStatement("__statement.addBatch()");
 
-                spec.beginControlFlow("if (__count % 250 == 0)");
+                spec.beginControlFlow("if (__count % $L == 0)", BATCH_SIZE);
                 spec.addStatement("__statement.executeBatch()");
                 spec.endControlFlow();
 
                 spec.endControlFlow();
                 spec.addStatement("__statement.executeBatch()");
                 spec.addStatement("__connection.commit()");
-            } else {
-                spec.addStatement("__statement.executeUpdate()");
             }
 
-            if (info.typeUtils().isType(Void.class, info.returnType())) {
-                spec.addStatement("return " + (info.returnInfo().async() ? "null" : ""));
-            } else if (info.typeUtils().isType(info.entityType(), info.returnType())) {
-                // todo support also creating an entity type from the given parameters
-                spec.addStatement("return $L", info.parametersInfo().name(0));
-            } else {
-                throw new InvalidRepositoryException(
-                        "Return type can be either void or %s but got %s", info.entityType(), info.returnType());
-            }
+            execute.run();
 
-            if (info.parametersInfo().isSelfCollection()) {
+            if (context.parametersInfo().isSelfCollection()) {
                 spec.nextControlFlow("catch ($T __exception)", SQLException.class);
                 spec.addStatement("__connection.rollback()");
                 spec.addStatement("throw __exception");
@@ -247,54 +261,31 @@ public class SqlRepositoryGenerator extends RepositoryGenerator {
         typeSpec.addMethod(spec.build());
     }
 
-    private void addBySectionData(MethodSpec.Builder spec, String query, QueryInfo info, Runnable content) {
-        wrapInCompletableFuture(spec, info.returnInfo().async(), () -> {
-            spec.beginControlFlow("try ($T __connection = this.dataSource.getConnection())", Connection.class);
-            spec.beginControlFlow(
-                    "try ($T __statement = __connection.prepareStatement($S))", PreparedStatement.class, query);
-
-            // if it has a By section, everything is handled through the parameters
-            int variableIndex = 0;
-            for (VariableByFactor variable : info.byVariables()) {
-                var columnName = variable.columnName();
-                var columnType =
-                        Objects.requireNonNull(info.columnFor(columnName)).typeName();
-
-                for (@NonNull CharSequence parameterName : variable.keyword().parameterNames()) {
-                    var input = parameterName;
-                    if (TypeUtils.needsTypeCodec(columnType)) {
-                        input = CodeBlock.of("this.__$L.encode($L)", columnName, input)
-                                .toString();
-                    }
-                    // jdbc index starts at 1
-                    spec.addStatement(jdbcSetFor(columnType, "__statement.%s($L, $L)"), ++variableIndex, input);
-                }
-            }
-
-            content.run();
-
-            spec.endControlFlow();
-            spec.nextControlFlow("catch ($T __exception)", SQLException.class);
-            spec.addStatement("throw new $T($S, __exception)", CompletionException.class, "Unexpected error occurred");
-            spec.endControlFlow();
-        });
-        typeSpec.addMethod(spec.build());
+    private String createSetFor(QueryContext context, QueryBuilder builder) {
+        if (context.projection() != null && context.projection().columnName() != null) {
+            //noinspection DataFlowIssue
+            var columns = List.of(context.columnFor(context.projection().columnName()));
+            return createParametersForColumns(columns, null, ',', builder, true);
+        }
+        var columns = context.entityInfo().notKeyColumns();
+        return createParametersForColumns(columns, null, ',', builder, false);
     }
 
-    private String createSetFor(QueryInfo info) {
-        return createParametersForColumns(info.entityInfo().notKeyColumns(), null, ',');
+    private String createWhereForKeys(QueryContext context, QueryBuilder builder) {
+        return createParametersForColumns(
+                context.entityInfo().keyColumns(), () -> AndFactor.INSTANCE, ' ', builder, false);
     }
 
-    private String createWhereForKeys(QueryInfo info) {
-        return createParametersForColumns(info.entityInfo().keyColumns(), () -> AndFactor.INSTANCE, ' ');
-    }
-
-    private String createWhereForAll(QueryInfo info) {
-        return createParametersForFactors(info.bySectionFactors(), ' ');
+    private String createWhereForFactors(QueryContext context, QueryBuilder builder) {
+        return createParametersForFactors(context.bySectionFactors(), ' ', builder, true);
     }
 
     private String createParametersForColumns(
-            List<ColumnInfo> columns, Supplier<Factor> factorSeparator, char separator) {
+            List<ColumnInfo> columns,
+            Supplier<Factor> factorSeparator,
+            char separator,
+            QueryBuilder builder,
+            boolean parameter) {
         var factors = new ArrayList<Factor>();
         for (ColumnInfo column : columns) {
             if (!factors.isEmpty() && factorSeparator != null) {
@@ -302,10 +293,11 @@ public class SqlRepositoryGenerator extends RepositoryGenerator {
             }
             factors.add(new VariableByFactor(column.name()));
         }
-        return createParametersForFactors(factors, separator);
+        return createParametersForFactors(factors, separator, builder, parameter);
     }
 
-    private String createParametersForFactors(List<Factor> factors, char separator) {
+    private String createParametersForFactors(
+            List<Factor> factors, char separator, QueryBuilder queryBuilder, boolean parameter) {
         var builder = new StringBuilder();
         for (Factor factor : factors) {
             if (!builder.isEmpty()) {
@@ -334,12 +326,14 @@ public class SqlRepositoryGenerator extends RepositoryGenerator {
             } else {
                 throw new InvalidRepositoryException("Unsupported keyword %s", keyword);
             }
+
+            queryBuilder.addColumn(variable, parameter);
         }
         return builder.toString();
     }
 
-    private String createProjectionFor(QueryInfo info) {
-        var section = info.result().projection();
+    private String createProjectionFor(QueryContext context) {
+        var section = context.result().projection();
         if (section == null) {
             return "*";
         }
@@ -354,7 +348,7 @@ public class SqlRepositoryGenerator extends RepositoryGenerator {
 
         for (ProjectionKeyword projection : section.notDistinctProjectionKeywords()) {
             if (projection instanceof AvgProjectionKeyword) {
-                if (!info.typeUtils().isWholeNumberType(info.returnType())) {
+                if (!context.typeUtils().isWholeNumberType(context.returnType())) {
                     result = "avg(%s)".formatted(result);
                 }
                 continue;

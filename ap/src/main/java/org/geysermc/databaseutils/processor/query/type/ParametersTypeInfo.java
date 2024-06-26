@@ -63,6 +63,10 @@ public class ParametersTypeInfo {
         return element.getParameters().get(index).getSimpleName();
     }
 
+    public boolean hasParameters() {
+        return !element.getParameters().isEmpty();
+    }
+
     public boolean isAnySelf() {
         return isSelf() || isSelfCollection();
     }

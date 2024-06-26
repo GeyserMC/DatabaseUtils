@@ -1,7 +1,6 @@
 package test.basic;
 
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.geysermc.databaseutils.IRepository;
 import org.geysermc.databaseutils.meta.Repository;
@@ -10,13 +9,11 @@ import org.geysermc.databaseutils.meta.Repository;
 public interface BasicRepository extends IRepository<TestEntity> {
     CompletableFuture<List<TestEntity>> find();
 
-    CompletableFuture<TestEntity> findByAAndB(int aa, String b);
-
-    Set<TestEntity> find(Set<TestEntity> entities);
+    CompletableFuture<TestEntity> findByA(int a);
 
     CompletableFuture<Boolean> exists();
 
-    CompletableFuture<Boolean> existsByAOrB(int a, String bb);
+    CompletableFuture<Boolean> existsByB(String b);
 
     void update(List<TestEntity> entity);
 

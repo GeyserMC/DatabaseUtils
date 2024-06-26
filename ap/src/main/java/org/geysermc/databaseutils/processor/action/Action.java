@@ -31,7 +31,7 @@ import java.util.function.Consumer;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeMirror;
 import org.geysermc.databaseutils.processor.info.EntityInfo;
-import org.geysermc.databaseutils.processor.query.QueryInfo;
+import org.geysermc.databaseutils.processor.query.QueryContext;
 import org.geysermc.databaseutils.processor.query.section.projection.ProjectionKeywordCategory;
 import org.geysermc.databaseutils.processor.type.RepositoryGenerator;
 import org.geysermc.databaseutils.processor.util.InvalidRepositoryException;
@@ -39,17 +39,23 @@ import org.geysermc.databaseutils.processor.util.TypeUtils;
 
 public abstract class Action {
     private final String actionType;
-    private final boolean allowSelfCollectionArgument;
+    private final boolean projectionColumnIsParameter;
+    private final boolean allowSelfParameter;
+    private final boolean allowReturnSelfCollection;
     private final boolean supportsFilter;
     private final List<ProjectionKeywordCategory> supportedProjectionCategories;
 
     protected Action(
             String actionType,
-            boolean allowSelfCollectionArgument,
+            boolean projectionColumnIsParameter,
+            boolean allowSelfParameter,
+            boolean allowReturnSelfCollection,
             boolean supportsFilter,
             ProjectionKeywordCategory... supportedProjectionCategories) {
         this.actionType = actionType;
-        this.allowSelfCollectionArgument = allowSelfCollectionArgument;
+        this.projectionColumnIsParameter = projectionColumnIsParameter;
+        this.allowSelfParameter = allowSelfParameter;
+        this.allowReturnSelfCollection = allowReturnSelfCollection;
         this.supportsFilter = supportsFilter;
         this.supportedProjectionCategories = List.of(supportedProjectionCategories);
     }
@@ -58,8 +64,16 @@ public abstract class Action {
         return actionType;
     }
 
-    public boolean allowSelfCollectionArgument() {
-        return allowSelfCollectionArgument;
+    public boolean projectionColumnIsParameter() {
+        return projectionColumnIsParameter;
+    }
+
+    public boolean allowSelfParameter() {
+        return allowSelfParameter;
+    }
+
+    public boolean allowReturnSelfCollection() {
+        return allowReturnSelfCollection;
     }
 
     public boolean supportsFilter() {
@@ -70,7 +84,7 @@ public abstract class Action {
         return supportedProjectionCategories;
     }
 
-    protected abstract void addToSingle(RepositoryGenerator generator, QueryInfo info, MethodSpec.Builder spec);
+    protected abstract void addToSingle(RepositoryGenerator generator, QueryContext context, MethodSpec.Builder spec);
 
     protected boolean validateSingle(
             EntityInfo info, CharSequence methodName, TypeMirror returnType, TypeUtils typeUtils) {
@@ -130,14 +144,16 @@ public abstract class Action {
         }
     }
 
-    public void addTo(List<RepositoryGenerator> generators, QueryInfo info) {
-        if (!info.hasBySection() && !info.parametersInfo().isNoneOrAnySelf()) {
-            throw new InvalidRepositoryException("Expected at most one parameter, with type %s", info.entityType());
+    public void addTo(List<RepositoryGenerator> generators, QueryContext context) {
+        if (!context.hasBySection() && !context.parametersInfo().isNoneOrAnySelf()) {
+            throw new InvalidRepositoryException("Expected at most one parameter, with type %s", context.entityType());
         }
 
         for (RepositoryGenerator generator : generators) {
             addToSingle(
-                    generator, info, MethodSpec.overriding(info.parametersInfo().element()));
+                    generator,
+                    context,
+                    MethodSpec.overriding(context.parametersInfo().element()));
         }
     }
 }

@@ -27,7 +27,7 @@ package org.geysermc.databaseutils.processor.action;
 import com.squareup.javapoet.MethodSpec;
 import javax.lang.model.type.TypeMirror;
 import org.geysermc.databaseutils.processor.info.EntityInfo;
-import org.geysermc.databaseutils.processor.query.QueryInfo;
+import org.geysermc.databaseutils.processor.query.QueryContext;
 import org.geysermc.databaseutils.processor.query.section.projection.ProjectionKeywordCategory;
 import org.geysermc.databaseutils.processor.type.RepositoryGenerator;
 import org.geysermc.databaseutils.processor.util.InvalidRepositoryException;
@@ -37,6 +37,8 @@ final class FindAction extends Action {
     FindAction() {
         super(
                 "find",
+                false,
+                false,
                 true,
                 true,
                 ProjectionKeywordCategory.UNIQUE,
@@ -61,7 +63,7 @@ final class FindAction extends Action {
     }
 
     @Override
-    public void addToSingle(RepositoryGenerator generator, QueryInfo info, MethodSpec.Builder spec) {
-        generator.addFind(info, spec);
+    public void addToSingle(RepositoryGenerator generator, QueryContext context, MethodSpec.Builder spec) {
+        generator.addFind(context, spec);
     }
 }

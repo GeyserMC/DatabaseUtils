@@ -50,7 +50,7 @@ import org.geysermc.databaseutils.IRepository;
 import org.geysermc.databaseutils.meta.Repository;
 import org.geysermc.databaseutils.processor.action.ActionRegistry;
 import org.geysermc.databaseutils.processor.query.KeywordsReader;
-import org.geysermc.databaseutils.processor.query.QueryInfoCreator;
+import org.geysermc.databaseutils.processor.query.QueryContextCreator;
 import org.geysermc.databaseutils.processor.type.RepositoryGenerator;
 import org.geysermc.databaseutils.processor.util.InvalidRepositoryException;
 import org.geysermc.databaseutils.processor.util.TypeUtils;
@@ -201,9 +201,9 @@ public final class RepositoryProcessor extends AbstractProcessor {
             if (action == null) {
                 throw new InvalidRepositoryException("No available actions for %s", name);
             }
-            var queryInfo = new QueryInfoCreator(action, result, element, entity, typeUtils).create();
 
-            action.addTo(generators, queryInfo);
+            var queryContext = new QueryContextCreator(action, result, element, entity, typeUtils).create();
+            action.addTo(generators, queryContext);
         }
 
         return generators;

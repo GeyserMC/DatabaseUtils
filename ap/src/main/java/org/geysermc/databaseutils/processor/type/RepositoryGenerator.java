@@ -35,7 +35,7 @@ import org.geysermc.databaseutils.codec.TypeCodec;
 import org.geysermc.databaseutils.codec.TypeCodecRegistry;
 import org.geysermc.databaseutils.processor.info.ColumnInfo;
 import org.geysermc.databaseutils.processor.info.EntityInfo;
-import org.geysermc.databaseutils.processor.query.QueryInfo;
+import org.geysermc.databaseutils.processor.query.QueryContext;
 import org.geysermc.databaseutils.processor.util.TypeUtils;
 
 public abstract class RepositoryGenerator {
@@ -48,15 +48,15 @@ public abstract class RepositoryGenerator {
 
     protected void onConstructorBuilder(MethodSpec.Builder builder) {}
 
-    public abstract void addFind(QueryInfo info, MethodSpec.Builder spec);
+    public abstract void addFind(QueryContext context, MethodSpec.Builder spec);
 
-    public abstract void addExists(QueryInfo info, MethodSpec.Builder spec);
+    public abstract void addExists(QueryContext context, MethodSpec.Builder spec);
 
-    public abstract void addInsert(QueryInfo info, MethodSpec.Builder spec);
+    public abstract void addInsert(QueryContext context, MethodSpec.Builder spec);
 
-    public abstract void addUpdate(QueryInfo info, MethodSpec.Builder spec);
+    public abstract void addUpdate(QueryContext context, MethodSpec.Builder spec);
 
-    public abstract void addDelete(QueryInfo info, MethodSpec.Builder spec);
+    public abstract void addDelete(QueryContext context, MethodSpec.Builder spec);
 
     public void init(TypeElement superType, EntityInfo entityInfo) {
         if (this.typeSpec != null) {

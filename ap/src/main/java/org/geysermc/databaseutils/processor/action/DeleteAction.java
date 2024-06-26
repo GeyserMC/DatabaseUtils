@@ -27,19 +27,19 @@ package org.geysermc.databaseutils.processor.action;
 import com.squareup.javapoet.MethodSpec;
 import javax.lang.model.type.TypeMirror;
 import org.geysermc.databaseutils.processor.info.EntityInfo;
-import org.geysermc.databaseutils.processor.query.QueryInfo;
+import org.geysermc.databaseutils.processor.query.QueryContext;
 import org.geysermc.databaseutils.processor.type.RepositoryGenerator;
 import org.geysermc.databaseutils.processor.util.InvalidRepositoryException;
 import org.geysermc.databaseutils.processor.util.TypeUtils;
 
 final class DeleteAction extends Action {
     DeleteAction() {
-        super("delete", true, true);
+        super("delete", false, true, true, true);
     }
 
     @Override
-    protected void addToSingle(RepositoryGenerator generator, QueryInfo info, MethodSpec.Builder spec) {
-        generator.addDelete(info, spec);
+    protected void addToSingle(RepositoryGenerator generator, QueryContext context, MethodSpec.Builder spec) {
+        generator.addDelete(context, spec);
     }
 
     @Override
