@@ -5,7 +5,6 @@ This readme will be expanded in the future with for example code examples,
 currently examples can be found in the tests of the AP module and the tests of the core module. 
 
 # What's left to do?
-- add distinct and things like limit and offset
 - make 'simple' actions like `insert` more flexible
   - allow it to return something else than void, e.g. ~~the input entity~~ or whether there was a row added
   - support adding every variable of the entity as parameter

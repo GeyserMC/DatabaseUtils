@@ -1,25 +1,6 @@
 /*
- * Copyright (c) 2024 GeyserMC <https://geysermc.org>
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- *
- * @author GeyserMC
+ * Copyright (c) 2024 GeyserMC
+ * Licensed under the MIT license
  * @link https://github.com/GeyserMC/DatabaseUtils
  */
 package org.geysermc.databaseutils.processor.type;
@@ -51,6 +32,7 @@ import org.geysermc.databaseutils.processor.query.section.factor.OrFactor;
 import org.geysermc.databaseutils.processor.query.section.factor.VariableByFactor;
 import org.geysermc.databaseutils.processor.query.section.projection.ProjectionKeyword;
 import org.geysermc.databaseutils.processor.query.section.projection.keyword.AvgProjectionKeyword;
+import org.geysermc.databaseutils.processor.query.section.projection.keyword.SkipProjectionKeyword;
 import org.geysermc.databaseutils.processor.query.section.projection.keyword.TopProjectionKeyword;
 import org.geysermc.databaseutils.processor.type.sql.QueryBuilder;
 import org.geysermc.databaseutils.processor.type.sql.QueryBuilder.QueryBuilderColumn;
@@ -74,7 +56,8 @@ public class SqlRepositoryGenerator extends RepositoryGenerator {
     @Override
     public void addFind(QueryContext context, MethodSpec.Builder spec) {
         var builder = new QueryBuilder(context)
-                .addRaw("select %s from %s", createProjectionFor(context), context.tableName());
+                .add("select %s", this::createProjectionFor)
+                .addRaw("from %s", context.tableName());
         if (context.hasBySection()) {
             builder.add("where %s", this::createWhereForFactors);
         }
@@ -332,7 +315,7 @@ public class SqlRepositoryGenerator extends RepositoryGenerator {
         return builder.toString();
     }
 
-    private String createProjectionFor(QueryContext context) {
+    private String createProjectionFor(QueryContext context, QueryBuilder builder) {
         var section = context.result().projection();
         if (section == null) {
             return "*";
@@ -344,7 +327,6 @@ public class SqlRepositoryGenerator extends RepositoryGenerator {
         if (distinct != null) {
             result = "distinct " + result;
         }
-        String limit = null;
 
         for (ProjectionKeyword projection : section.notDistinctProjectionKeywords()) {
             if (projection instanceof AvgProjectionKeyword) {
@@ -354,12 +336,16 @@ public class SqlRepositoryGenerator extends RepositoryGenerator {
                 continue;
             }
             if (projection instanceof TopProjectionKeyword keyword) {
-                limit = "limit " + keyword.limit();
+                builder.addEndRaw("limit " + keyword.limit());
+                continue;
+            }
+            if (projection instanceof SkipProjectionKeyword keyword) {
+                builder.addEndRaw("offset " + keyword.offset());
                 continue;
             }
             throw new InvalidRepositoryException("Unsupported projection %s", projection.name());
         }
 
-        return result + (limit != null ? ' ' + limit : "");
+        return result;
     }
 }
