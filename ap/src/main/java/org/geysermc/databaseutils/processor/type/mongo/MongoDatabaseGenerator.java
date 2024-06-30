@@ -24,7 +24,7 @@ import org.bson.Document;
 import org.bson.codecs.Codec;
 import org.bson.codecs.configuration.CodecProvider;
 import org.bson.codecs.configuration.CodecRegistry;
-import org.geysermc.databaseutils.DatabaseType;
+import org.geysermc.databaseutils.DatabaseCategory;
 import org.geysermc.databaseutils.meta.Index;
 import org.geysermc.databaseutils.mongo.MongodbDatabase;
 import org.geysermc.databaseutils.processor.info.EntityInfo;
@@ -33,7 +33,7 @@ import org.geysermc.databaseutils.processor.type.DatabaseGenerator;
 
 public class MongoDatabaseGenerator extends DatabaseGenerator {
     public MongoDatabaseGenerator() {
-        super(DatabaseType.MONGODB);
+        super(DatabaseCategory.MONGODB);
     }
 
     @Override

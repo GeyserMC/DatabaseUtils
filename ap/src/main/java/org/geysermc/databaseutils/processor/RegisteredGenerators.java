@@ -10,7 +10,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
-import org.geysermc.databaseutils.DatabaseType;
+import org.geysermc.databaseutils.DatabaseCategory;
 import org.geysermc.databaseutils.processor.type.DatabaseGenerator;
 import org.geysermc.databaseutils.processor.type.RepositoryGenerator;
 import org.geysermc.databaseutils.processor.type.mongo.MongoDatabaseGenerator;
@@ -19,8 +19,8 @@ import org.geysermc.databaseutils.processor.type.sql.SqlDatabaseGenerator;
 import org.geysermc.databaseutils.processor.type.sql.SqlRepositoryGenerator;
 
 final class RegisteredGenerators {
-    private static final Map<DatabaseType, Supplier<DatabaseGenerator>> DATABASE_GENERATORS = new HashMap<>();
-    private static final Map<DatabaseType, Supplier<RepositoryGenerator>> REPOSITORY_GENERATORS = new HashMap<>();
+    private static final Map<DatabaseCategory, Supplier<DatabaseGenerator>> DATABASE_GENERATORS = new HashMap<>();
+    private static final Map<DatabaseCategory, Supplier<RepositoryGenerator>> REPOSITORY_GENERATORS = new HashMap<>();
 
     private RegisteredGenerators() {}
 
@@ -38,10 +38,10 @@ final class RegisteredGenerators {
 
     static {
         // todo make it less cursed by using one map/list with everything for each database category
-        DATABASE_GENERATORS.put(DatabaseType.SQL, SqlDatabaseGenerator::new);
-        DATABASE_GENERATORS.put(DatabaseType.MONGODB, MongoDatabaseGenerator::new);
+        DATABASE_GENERATORS.put(DatabaseCategory.SQL, SqlDatabaseGenerator::new);
+        DATABASE_GENERATORS.put(DatabaseCategory.MONGODB, MongoDatabaseGenerator::new);
 
-        REPOSITORY_GENERATORS.put(DatabaseType.SQL, SqlRepositoryGenerator::new);
-        REPOSITORY_GENERATORS.put(DatabaseType.MONGODB, MongoRepositoryGenerator::new);
+        REPOSITORY_GENERATORS.put(DatabaseCategory.SQL, SqlRepositoryGenerator::new);
+        REPOSITORY_GENERATORS.put(DatabaseCategory.MONGODB, MongoRepositoryGenerator::new);
     }
 }

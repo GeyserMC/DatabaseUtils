@@ -17,7 +17,7 @@ final class SqlTest {
     void hello() throws ExecutionException, InterruptedException {
         var utils = DatabaseUtils.builder()
                 .useDefaultCredentials(true)
-                .type(DatabaseWithDialectType.MONGODB)
+                .type(DatabaseType.H2)
                 .executorService(Executors.newCachedThreadPool())
                 .build();
 

@@ -13,11 +13,11 @@ import org.geysermc.databaseutils.mongo.MongodbDatabase;
 import org.geysermc.databaseutils.sql.SqlDatabase;
 
 final class DatabaseRegistry {
-    private static final Map<DatabaseType, Supplier<Database>> TYPES =
-            Map.of(DatabaseType.SQL, SqlDatabase::new, DatabaseType.MONGODB, MongodbDatabase::new);
+    private static final Map<DatabaseCategory, Supplier<Database>> TYPES =
+            Map.of(DatabaseCategory.SQL, SqlDatabase::new, DatabaseCategory.MONGODB, MongodbDatabase::new);
 
-    public static @Nullable Database databaseFor(@NonNull DatabaseWithDialectType type) {
-        var instanceSupplier = TYPES.get(type.databaseType());
+    public static @Nullable Database databaseFor(@NonNull DatabaseType type) {
+        var instanceSupplier = TYPES.get(type.databaseCategory());
         if (instanceSupplier == null) {
             return null;
         }

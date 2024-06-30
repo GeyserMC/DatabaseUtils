@@ -1,21 +1,69 @@
 /*
- * Copyright (c) 2024 GeyserMC
- * Licensed under the MIT license
+ * Copyright (c) 2024 GeyserMC <https://geysermc.org>
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
+ *
+ * @author GeyserMC
  * @link https://github.com/GeyserMC/DatabaseUtils
  */
 package org.geysermc.databaseutils;
 
+import java.util.Locale;
+import java.util.Objects;
+import org.checkerframework.checker.nullness.qual.NonNull;
+import org.checkerframework.checker.nullness.qual.Nullable;
+import org.geysermc.databaseutils.sql.SqlDialect;
+
 public enum DatabaseType {
-    SQL("Sql"),
-    MONGODB("Mongo");
+    H2(DatabaseCategory.SQL, SqlDialect.H2),
+    SQL_SERVER(DatabaseCategory.SQL, SqlDialect.SQL_SERVER),
+    MYSQL(DatabaseCategory.SQL, SqlDialect.MYSQL),
+    ORACLE_DATABASE(DatabaseCategory.SQL, SqlDialect.ORACLE_DATABASE),
+    POSTGRESQL(DatabaseCategory.SQL, SqlDialect.POSTGRESQL),
+    SQLITE(DatabaseCategory.SQL, SqlDialect.SQLITE),
+    MONGODB(DatabaseCategory.MONGODB, null);
 
-    private final String upperCamelCaseName;
+    private static final DatabaseType[] VALUES = values();
 
-    DatabaseType(String upperCamelCaseName) {
-        this.upperCamelCaseName = upperCamelCaseName;
+    private final DatabaseCategory databaseCategory;
+    private final SqlDialect dialect;
+
+    DatabaseType(@NonNull DatabaseCategory databaseCategory, @Nullable SqlDialect dialect) {
+        this.databaseCategory = Objects.requireNonNull(databaseCategory);
+        this.dialect = dialect;
     }
 
-    public String upperCamelCaseName() {
-        return upperCamelCaseName;
+    public static @Nullable DatabaseType byName(@NonNull String name) {
+        var normalized = name.replace('-', '_').replace(' ', '_').toUpperCase(Locale.ROOT);
+        for (DatabaseType value : VALUES) {
+            if (value.name().equals(normalized)) {
+                return value;
+            }
+        }
+        return null;
+    }
+
+    public @NonNull DatabaseCategory databaseCategory() {
+        return databaseCategory;
+    }
+
+    public @Nullable SqlDialect dialect() {
+        return dialect;
     }
 }

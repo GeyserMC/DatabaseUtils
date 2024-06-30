@@ -21,7 +21,7 @@ import java.util.List;
 import javax.lang.model.element.Modifier;
 import org.bson.Document;
 import org.checkerframework.checker.nullness.qual.NonNull;
-import org.geysermc.databaseutils.DatabaseType;
+import org.geysermc.databaseutils.DatabaseCategory;
 import org.geysermc.databaseutils.processor.query.QueryContext;
 import org.geysermc.databaseutils.processor.query.section.by.keyword.EqualsKeyword;
 import org.geysermc.databaseutils.processor.query.section.by.keyword.LessThanKeyword;
@@ -37,7 +37,7 @@ import org.geysermc.databaseutils.processor.util.InvalidRepositoryException;
 
 public class MongoRepositoryGenerator extends RepositoryGenerator {
     public MongoRepositoryGenerator() {
-        super(DatabaseType.MONGODB);
+        super(DatabaseCategory.MONGODB);
     }
 
     @Override

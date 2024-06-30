@@ -17,17 +17,17 @@ import java.util.Collection;
 import java.util.List;
 import java.util.function.BiFunction;
 import javax.lang.model.element.Modifier;
-import org.geysermc.databaseutils.DatabaseType;
+import org.geysermc.databaseutils.DatabaseCategory;
 import org.geysermc.databaseutils.IRepository;
 import org.geysermc.databaseutils.codec.TypeCodecRegistry;
 import org.geysermc.databaseutils.processor.info.EntityInfo;
 
 public abstract class DatabaseGenerator {
-    private final DatabaseType databaseType;
+    private final DatabaseCategory databaseCategory;
     protected TypeSpec.Builder spec;
 
-    public DatabaseGenerator(DatabaseType databaseType) {
-        this.databaseType = databaseType;
+    public DatabaseGenerator(DatabaseCategory databaseCategory) {
+        this.databaseCategory = databaseCategory;
     }
 
     public void init(TypeSpec.Builder spec, boolean hasAsync) {
@@ -40,8 +40,8 @@ public abstract class DatabaseGenerator {
                 .build());
     }
 
-    public DatabaseType databaseType() {
-        return databaseType;
+    public DatabaseCategory databaseCategory() {
+        return databaseCategory;
     }
 
     public abstract Class<?> databaseClass();

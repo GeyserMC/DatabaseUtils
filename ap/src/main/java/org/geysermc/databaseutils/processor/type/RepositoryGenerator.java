@@ -12,7 +12,7 @@ import com.squareup.javapoet.TypeSpec;
 import java.util.concurrent.CompletableFuture;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
-import org.geysermc.databaseutils.DatabaseType;
+import org.geysermc.databaseutils.DatabaseCategory;
 import org.geysermc.databaseutils.codec.TypeCodec;
 import org.geysermc.databaseutils.codec.TypeCodecRegistry;
 import org.geysermc.databaseutils.processor.info.ColumnInfo;
@@ -21,15 +21,15 @@ import org.geysermc.databaseutils.processor.query.QueryContext;
 import org.geysermc.databaseutils.processor.util.TypeUtils;
 
 public abstract class RepositoryGenerator {
-    private final DatabaseType type;
+    private final DatabaseCategory category;
 
     protected TypeSpec.Builder typeSpec;
     protected boolean hasAsync;
     protected EntityInfo entityInfo;
     private String packageName;
 
-    protected RepositoryGenerator(DatabaseType type) {
-        this.type = type;
+    protected RepositoryGenerator(DatabaseCategory category) {
+        this.category = category;
     }
 
     protected void onConstructorBuilder(MethodSpec.Builder builder) {}
@@ -49,7 +49,7 @@ public abstract class RepositoryGenerator {
             throw new IllegalStateException("Cannot reinitialize RepositoryGenerator");
         }
         this.packageName = TypeUtils.packageNameFor(superType.getQualifiedName());
-        var className = superType.getSimpleName() + type.upperCamelCaseName() + "Impl";
+        var className = superType.getSimpleName() + category.upperCamelCaseName() + "Impl";
         this.typeSpec = TypeSpec.classBuilder(className)
                 .addSuperinterface(ParameterizedTypeName.get(superType.asType()))
                 .addModifiers(Modifier.PUBLIC, Modifier.FINAL);

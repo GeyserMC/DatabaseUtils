@@ -28,7 +28,7 @@ final class DatabaseLoader {
         List<BiFunction<Database, TypeCodecRegistry, IRepository<?>>> repositoryCreators;
         Method createEntitiesMethod;
         try {
-            var className = context.type().databaseType().upperCamelCaseName() + "DatabaseGenerated";
+            var className = context.type().databaseCategory().upperCamelCaseName() + "DatabaseGenerated";
             databaseImplClass = Class.forName(database.getClass().getPackageName() + "." + className);
 
             hasAsync = access(databaseImplClass.getDeclaredField("HAS_ASYNC")).getBoolean(null);

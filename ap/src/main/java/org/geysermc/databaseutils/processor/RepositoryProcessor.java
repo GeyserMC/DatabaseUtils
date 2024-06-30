@@ -117,7 +117,7 @@ public final class RepositoryProcessor extends AbstractProcessor {
                 repositoryClasses.add(result.packageName() + "." + build.name);
             }
 
-            var spec = TypeSpec.classBuilder(generator.databaseType().upperCamelCaseName() + "DatabaseGenerated");
+            var spec = TypeSpec.classBuilder(generator.databaseCategory().upperCamelCaseName() + "DatabaseGenerated");
             generator.init(spec, hasAsync);
             generator.addEntities(entityManager.processedEntities());
             generator.addRepositories(repositoryClasses);

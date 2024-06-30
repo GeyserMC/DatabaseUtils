@@ -12,7 +12,7 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Collection;
-import org.geysermc.databaseutils.DatabaseType;
+import org.geysermc.databaseutils.DatabaseCategory;
 import org.geysermc.databaseutils.processor.info.ColumnInfo;
 import org.geysermc.databaseutils.processor.info.EntityInfo;
 import org.geysermc.databaseutils.processor.type.DatabaseGenerator;
@@ -22,7 +22,7 @@ import org.geysermc.databaseutils.sql.SqlTypeMappingRegistry;
 
 public class SqlDatabaseGenerator extends DatabaseGenerator {
     public SqlDatabaseGenerator() {
-        super(DatabaseType.SQL);
+        super(DatabaseCategory.SQL);
     }
 
     @Override

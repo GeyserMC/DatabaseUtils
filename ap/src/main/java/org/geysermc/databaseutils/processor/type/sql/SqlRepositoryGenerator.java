@@ -21,7 +21,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletionException;
 import javax.lang.model.element.Modifier;
-import org.geysermc.databaseutils.DatabaseType;
+import org.geysermc.databaseutils.DatabaseCategory;
 import org.geysermc.databaseutils.processor.info.ColumnInfo;
 import org.geysermc.databaseutils.processor.query.QueryContext;
 import org.geysermc.databaseutils.processor.query.section.by.keyword.EqualsKeyword;
@@ -43,7 +43,7 @@ public final class SqlRepositoryGenerator extends RepositoryGenerator {
     private static final int BATCH_SIZE = 250;
 
     public SqlRepositoryGenerator() {
-        super(DatabaseType.SQL);
+        super(DatabaseCategory.SQL);
     }
 
     @Override

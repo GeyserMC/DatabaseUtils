@@ -81,7 +81,7 @@ public class DatabaseUtils {
         private String poolName = "database-utils";
         private int connectionPoolSize = 0;
 
-        private DatabaseWithDialectType type;
+        private DatabaseType type;
 
         private Path credentialsFile;
         private boolean useDefaultCredentials = true;
@@ -158,11 +158,11 @@ public class DatabaseUtils {
             return this;
         }
 
-        public DatabaseWithDialectType type() {
+        public DatabaseType type() {
             return type;
         }
 
-        public Builder type(DatabaseWithDialectType type) {
+        public Builder type(DatabaseType type) {
             this.type = type;
             return this;
         }

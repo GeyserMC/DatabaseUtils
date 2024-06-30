@@ -14,7 +14,7 @@ import java.util.ArrayList;
 import java.util.Properties;
 
 final class CredentialsFileHandler {
-    public DatabaseConfig handle(DatabaseWithDialectType dialect, Path credentialsFile) {
+    public DatabaseConfig handle(DatabaseType dialect, Path credentialsFile) {
         DatabaseConfig config = defaultValuesFor(dialect);
         if (credentialsFile != null) {
             if (Files.exists(credentialsFile)) {
@@ -55,7 +55,7 @@ final class CredentialsFileHandler {
         }
     }
 
-    private DatabaseConfig defaultValuesFor(DatabaseWithDialectType type) {
+    private DatabaseConfig defaultValuesFor(DatabaseType type) {
         return switch (type) {
             case H2 -> configFor("jdbc:h2:./database", "sa");
             case SQL_SERVER -> configFor("jdbc:sqlserver://localhost;encrypt=true;integratedSecurity=true;");

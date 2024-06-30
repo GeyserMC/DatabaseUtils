@@ -33,7 +33,7 @@ public record DatabaseContext(
         String password,
         String poolName,
         int connectionPoolSize,
-        DatabaseWithDialectType type,
+        DatabaseType type,
         ExecutorService service,
         TypeCodecRegistry registry) {
 
@@ -46,7 +46,7 @@ public record DatabaseContext(
     public DatabaseContext(
             DatabaseConfig config,
             String poolName,
-            DatabaseWithDialectType type,
+            DatabaseType type,
             ExecutorService service,
             TypeCodecRegistry registry) {
         this(
