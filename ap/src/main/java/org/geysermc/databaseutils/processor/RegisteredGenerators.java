@@ -1,55 +1,47 @@
 /*
- * Copyright (c) 2024 GeyserMC <https://geysermc.org>
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- *
- * @author GeyserMC
+ * Copyright (c) 2024 GeyserMC
+ * Licensed under the MIT license
  * @link https://github.com/GeyserMC/DatabaseUtils
  */
 package org.geysermc.databaseutils.processor;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import org.geysermc.databaseutils.DatabaseType;
 import org.geysermc.databaseutils.processor.type.DatabaseGenerator;
 import org.geysermc.databaseutils.processor.type.RepositoryGenerator;
-import org.geysermc.databaseutils.processor.type.SqlDatabaseGenerator;
-import org.geysermc.databaseutils.processor.type.SqlRepositoryGenerator;
+import org.geysermc.databaseutils.processor.type.mongo.MongoDatabaseGenerator;
+import org.geysermc.databaseutils.processor.type.mongo.MongoRepositoryGenerator;
+import org.geysermc.databaseutils.processor.type.sql.SqlDatabaseGenerator;
+import org.geysermc.databaseutils.processor.type.sql.SqlRepositoryGenerator;
 
 final class RegisteredGenerators {
-    // both the database and the repository generators have to be on the same indexes
-
-    private static final List<Supplier<DatabaseGenerator>> DATABASE_GENERATORS = List.of(SqlDatabaseGenerator::new);
-    private static final List<Supplier<RepositoryGenerator>> REPOSITORY_GENERATORS =
-            List.of(SqlRepositoryGenerator::new);
+    private static final Map<DatabaseType, Supplier<DatabaseGenerator>> DATABASE_GENERATORS = new HashMap<>();
+    private static final Map<DatabaseType, Supplier<RepositoryGenerator>> REPOSITORY_GENERATORS = new HashMap<>();
 
     private RegisteredGenerators() {}
 
     public static List<DatabaseGenerator> databaseGenerators() {
-        return DATABASE_GENERATORS.stream().map(Supplier::get).collect(Collectors.toList());
+        return DATABASE_GENERATORS.values().stream().map(Supplier::get).collect(Collectors.toList());
     }
 
     public static List<RepositoryGenerator> repositoryGenerators() {
-        return REPOSITORY_GENERATORS.stream().map(Supplier::get).collect(Collectors.toList());
+        return REPOSITORY_GENERATORS.values().stream().map(Supplier::get).collect(Collectors.toList());
     }
 
     public static int generatorCount() {
         return DATABASE_GENERATORS.size();
+    }
+
+    static {
+        // todo make it less cursed by using one map/list with everything for each database category
+        DATABASE_GENERATORS.put(DatabaseType.SQL, SqlDatabaseGenerator::new);
+        DATABASE_GENERATORS.put(DatabaseType.MONGODB, MongoDatabaseGenerator::new);
+
+        REPOSITORY_GENERATORS.put(DatabaseType.SQL, SqlRepositoryGenerator::new);
+        REPOSITORY_GENERATORS.put(DatabaseType.MONGODB, MongoRepositoryGenerator::new);
     }
 }

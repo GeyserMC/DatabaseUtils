@@ -1,25 +1,6 @@
 /*
- * Copyright (c) 2024 GeyserMC <https://geysermc.org>
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- *
- * @author GeyserMC
+ * Copyright (c) 2024 GeyserMC
+ * Licensed under the MIT license
  * @link https://github.com/GeyserMC/DatabaseUtils
  */
 package org.geysermc.databaseutils.processor.query.type;
@@ -35,12 +16,15 @@ public class ParametersTypeInfo {
     private final boolean isSelf;
     private final TypeMirror elementType;
     private final boolean isSelfCollection;
+    private final boolean hasColumnParameter;
 
-    public ParametersTypeInfo(ExecutableElement element, CharSequence entityType, TypeUtils typeUtils) {
+    public ParametersTypeInfo(
+            ExecutableElement element, TypeMirror entityType, TypeUtils typeUtils, boolean hasColumnParameter) {
         this.element = element;
         this.isSelf = isSelf(entityType, typeUtils);
         this.elementType = elementType(typeUtils);
         this.isSelfCollection = elementType != null && typeUtils.isAssignable(elementType, entityType);
+        this.hasColumnParameter = hasColumnParameter;
     }
 
     public ExecutableElement element() {
@@ -63,8 +47,16 @@ public class ParametersTypeInfo {
         return element.getParameters().get(index).getSimpleName();
     }
 
-    public boolean hasParameters() {
-        return !element.getParameters().isEmpty();
+    public CharSequence columnParameter() {
+        return hasColumnParameter ? name(0) : null;
+    }
+
+    public CharSequence firstName() {
+        return name(hasColumnParameter ? 1 : 0);
+    }
+
+    public boolean hasValueParameters() {
+        return element.getParameters().size() > (hasColumnParameter ? 1 : 0);
     }
 
     public boolean isAnySelf() {
@@ -75,7 +67,7 @@ public class ParametersTypeInfo {
         return element.getParameters().isEmpty() || isAnySelf();
     }
 
-    private boolean isSelf(CharSequence entityType, TypeUtils typeUtils) {
+    private boolean isSelf(TypeMirror entityType, TypeUtils typeUtils) {
         if (element.getParameters().size() != 1) {
             return false;
         }

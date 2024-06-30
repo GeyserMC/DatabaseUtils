@@ -3,7 +3,7 @@
  * Licensed under the MIT license
  * @link https://github.com/GeyserMC/DatabaseUtils
  */
-package org.geysermc.databaseutils.processor.type;
+package org.geysermc.databaseutils.processor.type.sql;
 
 import static org.geysermc.databaseutils.processor.type.sql.JdbcTypeMappingRegistry.jdbcGetFor;
 import static org.geysermc.databaseutils.processor.type.sql.JdbcTypeMappingRegistry.jdbcSetFor;
@@ -20,8 +20,8 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletionException;
-import java.util.function.Supplier;
 import javax.lang.model.element.Modifier;
+import org.geysermc.databaseutils.DatabaseType;
 import org.geysermc.databaseutils.processor.info.ColumnInfo;
 import org.geysermc.databaseutils.processor.query.QueryContext;
 import org.geysermc.databaseutils.processor.query.section.by.keyword.EqualsKeyword;
@@ -34,17 +34,16 @@ import org.geysermc.databaseutils.processor.query.section.projection.ProjectionK
 import org.geysermc.databaseutils.processor.query.section.projection.keyword.AvgProjectionKeyword;
 import org.geysermc.databaseutils.processor.query.section.projection.keyword.SkipProjectionKeyword;
 import org.geysermc.databaseutils.processor.query.section.projection.keyword.TopProjectionKeyword;
-import org.geysermc.databaseutils.processor.type.sql.QueryBuilder;
+import org.geysermc.databaseutils.processor.type.RepositoryGenerator;
 import org.geysermc.databaseutils.processor.type.sql.QueryBuilder.QueryBuilderColumn;
 import org.geysermc.databaseutils.processor.util.InvalidRepositoryException;
 import org.geysermc.databaseutils.processor.util.TypeUtils;
 
-public class SqlRepositoryGenerator extends RepositoryGenerator {
+public final class SqlRepositoryGenerator extends RepositoryGenerator {
     private static final int BATCH_SIZE = 250;
 
-    @Override
-    protected String upperCamelCaseDatabaseType() {
-        return "Sql";
+    public SqlRepositoryGenerator() {
+        super(DatabaseType.SQL);
     }
 
     @Override
@@ -65,7 +64,7 @@ public class SqlRepositoryGenerator extends RepositoryGenerator {
         addExecuteQueryData(spec, context, builder, () -> {
             if (context.returnInfo().isCollection()) {
                 spec.addStatement(
-                        "$T __responses = new $L<>()",
+                        "$T __responses = new $T<>()",
                         context.returnType(),
                         context.typeUtils().collectionImplementationFor(context.returnType()));
                 spec.beginControlFlow("while (__result.next())");
@@ -79,7 +78,7 @@ public class SqlRepositoryGenerator extends RepositoryGenerator {
             for (ColumnInfo column : context.columns()) {
                 var columnType = ClassName.bestGuess(column.typeName().toString());
 
-                var getFormat = jdbcGetFor(column.typeName(), "__result.%s(%s)");
+                var getFormat = jdbcGetFor(column.typeName(), "__result.%s");
                 if (TypeUtils.needsTypeCodec(column.typeName())) {
                     getFormat = CodeBlock.of("this.__$L.decode($L)", column.name(), getFormat)
                             .toString();
@@ -92,15 +91,13 @@ public class SqlRepositoryGenerator extends RepositoryGenerator {
             if (context.returnInfo().isCollection()) {
                 spec.addStatement(
                         "__responses.add(new $T($L))",
-                        ClassName.bestGuess(context.entityType().toString()),
+                        ClassName.get(context.entityType()),
                         String.join(", ", arguments));
                 spec.endControlFlow();
                 spec.addStatement("return __responses");
             } else {
                 spec.addStatement(
-                        "return new $T($L)",
-                        ClassName.bestGuess(context.entityType().toString()),
-                        String.join(", ", arguments));
+                        "return new $T($L)", ClassName.get(context.entityType()), String.join(", ", arguments));
             }
         });
     }
@@ -168,19 +165,19 @@ public class SqlRepositoryGenerator extends RepositoryGenerator {
 
             if (context.typeUtils().isType(Void.class, context.returnType())) {
                 spec.addStatement("return $L", context.returnInfo().async() ? "null" : "");
-            } else if (context.typeUtils().isType(context.entityType(), context.returnType())) {
+            } else if (context.typeUtils().isType(context.entityType().asType(), context.returnType())) {
                 // todo support also creating an entity type from the given parameters
-                spec.addStatement("return $L", context.parametersInfo().name(0));
+                spec.addStatement("return $L", context.parametersInfo().firstName());
             } else {
                 throw new InvalidRepositoryException(
-                        "Return type can be either void or %s but got %s", context.entityType(), context.returnType());
+                        "Return type can be either void or %s but got %s",
+                        context.entityTypeName(), context.returnType());
             }
         });
     }
 
     private void addBySectionData(
             MethodSpec.Builder spec, QueryContext context, QueryBuilder builder, Runnable execute) {
-
         wrapInCompletableFuture(spec, context.returnInfo().async(), () -> {
             spec.beginControlFlow("try ($T __connection = this.dataSource.getConnection())", Connection.class);
             spec.beginControlFlow(
@@ -189,8 +186,8 @@ public class SqlRepositoryGenerator extends RepositoryGenerator {
                     builder.query());
 
             CharSequence parameterName = "";
-            if (context.parametersInfo().hasParameters()) {
-                parameterName = context.parametersInfo().name(0);
+            if (context.parametersInfo().hasValueParameters()) {
+                parameterName = context.parametersInfo().firstName();
             }
 
             if (context.parametersInfo().isSelfCollection()) {
@@ -246,37 +243,27 @@ public class SqlRepositoryGenerator extends RepositoryGenerator {
 
     private String createSetFor(QueryContext context, QueryBuilder builder) {
         if (context.projection() != null && context.projection().columnName() != null) {
-            //noinspection DataFlowIssue
-            var columns = List.of(context.columnFor(context.projection().columnName()));
-            return createParametersForColumns(columns, null, ',', builder, true);
+            List<Factor> columns =
+                    List.of(new VariableByFactor(context.projection().columnName()));
+            return createParametersForFactors(columns, ',', builder, true);
         }
-        var columns = context.entityInfo().notKeyColumns();
-        return createParametersForColumns(columns, null, ',', builder, false);
+        var parameterName = context.parametersInfo().isSelfCollection()
+                ? "__element"
+                : context.parametersInfo().firstName();
+        return createParametersForFactors(
+                context.entityInfo().notKeyColumnsAsFactors(null, parameterName), ',', builder, false);
     }
 
     private String createWhereForKeys(QueryContext context, QueryBuilder builder) {
-        return createParametersForColumns(
-                context.entityInfo().keyColumns(), () -> AndFactor.INSTANCE, ' ', builder, false);
+        var parameterName = context.parametersInfo().isSelfCollection()
+                ? "__element"
+                : context.parametersInfo().firstName();
+        return createParametersForFactors(
+                context.entityInfo().keyColumnsAsFactors(AndFactor.INSTANCE, parameterName), ' ', builder, false);
     }
 
     private String createWhereForFactors(QueryContext context, QueryBuilder builder) {
         return createParametersForFactors(context.bySectionFactors(), ' ', builder, true);
-    }
-
-    private String createParametersForColumns(
-            List<ColumnInfo> columns,
-            Supplier<Factor> factorSeparator,
-            char separator,
-            QueryBuilder builder,
-            boolean parameter) {
-        var factors = new ArrayList<Factor>();
-        for (ColumnInfo column : columns) {
-            if (!factors.isEmpty() && factorSeparator != null) {
-                factors.add(factorSeparator.get());
-            }
-            factors.add(new VariableByFactor(column.name()));
-        }
-        return createParametersForFactors(factors, separator, builder, parameter);
     }
 
     private String createParametersForFactors(

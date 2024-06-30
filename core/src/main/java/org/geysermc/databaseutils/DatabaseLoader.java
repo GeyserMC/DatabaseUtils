@@ -1,30 +1,13 @@
 /*
- * Copyright (c) 2024 GeyserMC <https://geysermc.org>
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- *
- * @author GeyserMC
+ * Copyright (c) 2024 GeyserMC
+ * Licensed under the MIT license
  * @link https://github.com/GeyserMC/DatabaseUtils
  */
 package org.geysermc.databaseutils;
 
-import java.lang.reflect.AccessibleObject;
+import static org.geysermc.databaseutils.util.ClassUtils.access;
+import static org.geysermc.databaseutils.util.ClassUtils.staticCastedValue;
+
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
@@ -34,7 +17,6 @@ import org.checkerframework.checker.nullness.qual.NonNull;
 import org.geysermc.databaseutils.codec.TypeCodecRegistry;
 
 final class DatabaseLoader {
-    @SuppressWarnings({"unchecked"})
     @NonNull StartResult startDatabase(DatabaseContext context) {
         var database = DatabaseRegistry.databaseFor(context.type());
         if (database == null) {
@@ -46,11 +28,11 @@ final class DatabaseLoader {
         List<BiFunction<Database, TypeCodecRegistry, IRepository<?>>> repositoryCreators;
         Method createEntitiesMethod;
         try {
-            databaseImplClass = Class.forName(database.getClass().getName() + "Generated");
+            var className = context.type().databaseType().upperCamelCaseName() + "DatabaseGenerated";
+            databaseImplClass = Class.forName(database.getClass().getPackageName() + "." + className);
 
             hasAsync = access(databaseImplClass.getDeclaredField("HAS_ASYNC")).getBoolean(null);
-            repositoryCreators = (List<BiFunction<Database, TypeCodecRegistry, IRepository<?>>>)
-                    access(databaseImplClass.getDeclaredField("REPOSITORIES")).get(null);
+            repositoryCreators = staticCastedValue(databaseImplClass.getDeclaredField("REPOSITORIES"));
             createEntitiesMethod = access(databaseImplClass.getDeclaredMethod("createEntities", database.getClass()));
         } catch (ClassNotFoundException exception) {
             throw new IllegalStateException("Could not find database implementation!", exception);
@@ -62,7 +44,7 @@ final class DatabaseLoader {
             throw new IllegalStateException("Database has async methods but no ExecutorService was provided!");
         }
 
-        database.start(context);
+        database.start(context, databaseImplClass);
 
         try {
             createEntitiesMethod.invoke(null, database);
@@ -76,11 +58,6 @@ final class DatabaseLoader {
         }
 
         return new StartResult(database, repositories);
-    }
-
-    private <T extends AccessibleObject> T access(T member) {
-        member.setAccessible(true);
-        return member;
     }
 
     record StartResult(Database database, List<IRepository<?>> repositories) {}

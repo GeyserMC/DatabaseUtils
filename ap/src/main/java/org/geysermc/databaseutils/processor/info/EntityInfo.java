@@ -1,25 +1,6 @@
 /*
- * Copyright (c) 2024 GeyserMC <https://geysermc.org>
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- *
- * @author GeyserMC
+ * Copyright (c) 2024 GeyserMC
+ * Licensed under the MIT license
  * @link https://github.com/GeyserMC/DatabaseUtils
  */
 package org.geysermc.databaseutils.processor.info;
@@ -28,6 +9,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 import javax.lang.model.element.TypeElement;
+import org.checkerframework.checker.nullness.qual.NonNull;
+import org.checkerframework.checker.nullness.qual.Nullable;
+import org.geysermc.databaseutils.processor.query.section.by.keyword.EqualsKeyword;
+import org.geysermc.databaseutils.processor.query.section.factor.Factor;
+import org.geysermc.databaseutils.processor.query.section.factor.VariableByFactor;
 
 public record EntityInfo(
         String name, TypeElement type, List<ColumnInfo> columns, List<IndexInfo> indexes, List<CharSequence> keys) {
@@ -54,10 +40,27 @@ public record EntityInfo(
                 .toList();
     }
 
-    public List<ColumnInfo> notKeyFirstColumns() {
-        var combined = new ArrayList<ColumnInfo>();
-        combined.addAll(notKeyColumns());
-        combined.addAll(keyColumns());
-        return combined;
+    public List<Factor> keyColumnsAsFactors(@Nullable Factor separator, @NonNull CharSequence parameterName) {
+        return asFactors(keyColumns(), separator, parameterName);
+    }
+
+    public List<Factor> notKeyColumnsAsFactors(@Nullable Factor separator, @NonNull CharSequence parameterName) {
+        return asFactors(notKeyColumns(), separator, parameterName);
+    }
+
+    private List<Factor> asFactors(
+            @NonNull List<ColumnInfo> columns, @Nullable Factor separator, @Nullable CharSequence parameterName) {
+        var factors = new ArrayList<Factor>();
+        for (ColumnInfo column : columns) {
+            if (!factors.isEmpty() && separator != null) {
+                factors.add(separator);
+            }
+
+            if (parameterName != null) {
+                var name = "%s.%s()".formatted(parameterName, column.name());
+                factors.add(new VariableByFactor(column.name(), new EqualsKeyword().addParameterName(name)));
+            }
+        }
+        return factors;
     }
 }

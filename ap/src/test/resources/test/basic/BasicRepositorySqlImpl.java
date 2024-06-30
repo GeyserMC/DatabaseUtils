@@ -10,6 +10,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -37,7 +38,7 @@ public final class BasicRepositorySqlImpl implements BasicRepository {
             try (Connection __connection = this.dataSource.getConnection()) {
                 try (PreparedStatement __statement = __connection.prepareStatement("select * from hello")) {
                     try (ResultSet __result = __statement.executeQuery()) {
-                        List<TestEntity> __responses = new java.util.ArrayList<>();
+                        List<TestEntity> __responses = new ArrayList<>();
                         while (__result.next()) {
                             Integer _a = __result.getInt("a");
                             String _b = __result.getString("b");

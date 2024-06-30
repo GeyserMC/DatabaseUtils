@@ -1,25 +1,6 @@
 /*
- * Copyright (c) 2024 GeyserMC <https://geysermc.org>
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- *
- * @author GeyserMC
+ * Copyright (c) 2024 GeyserMC
+ * Licensed under the MIT license
  * @link https://github.com/GeyserMC/DatabaseUtils
  */
 package org.geysermc.databaseutils.codec;
@@ -28,24 +9,24 @@ import java.util.ArrayList;
 import java.util.List;
 
 public final class TypeCodecRegistry {
-    private final List<TypeCodec<?>> TYPES = new ArrayList<>();
+    private final List<TypeCodec<?>> codecs = new ArrayList<>();
 
     public TypeCodecRegistry() {
-        TYPES.add(UuidCodec.INSTANCE);
+        codecs.add(UuidCodec.INSTANCE);
     }
 
     public TypeCodecRegistry(TypeCodecRegistry registry) {
         this();
-        TYPES.addAll(registry.TYPES);
+        codecs.addAll(registry.codecs);
     }
 
     public void addCodec(TypeCodec<?> codec) {
-        TYPES.add(codec);
+        codecs.add(codec);
     }
 
     public <T> TypeCodec<T> codecFor(Class<T> type) {
-        for (TypeCodec<?> codec : TYPES) {
-            if (codec.matches(type)) {
+        for (TypeCodec<?> codec : codecs) {
+            if (codec.type(type)) {
                 //noinspection unchecked
                 return (TypeCodec<T>) codec;
             }
@@ -59,5 +40,9 @@ public final class TypeCodecRegistry {
             throw new IllegalStateException("Was not able to find codec for " + type.getName());
         }
         return codec;
+    }
+
+    public List<TypeCodec<?>> typeCodecs() {
+        return codecs;
     }
 }
