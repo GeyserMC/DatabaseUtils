@@ -6,7 +6,6 @@ import com.mongodb.client.MongoDatabase;
 import com.mongodb.client.model.IndexOptions;
 import java.lang.Class;
 import java.lang.Override;
-import java.lang.String;
 import java.lang.SuppressWarnings;
 import java.util.ArrayList;
 import java.util.List;
@@ -52,15 +51,9 @@ class MongoDatabaseGenerated {
     }
 
     private static final class TestEntityCodec implements Codec<TestEntity> {
-        private final Codec<String> b;
-
-        private final Codec<String> c;
-
         private final Codec<UUID> d;
 
         public TestEntityCodec(CodecRegistry registry) {
-            this.b = registry.get(String.class);
-            this.c = registry.get(String.class);
             this.d = registry.get(UUID.class);
         }
 
@@ -75,11 +68,11 @@ class MongoDatabaseGenerated {
                     continue;
                 }
                 if ("b".equals(name)) {
-                    map.put("b", this.b.decode(reader, context));
+                    map.put("b", reader.readString());
                     continue;
                 }
                 if ("c".equals(name)) {
-                    map.put("c", this.c.decode(reader, context));
+                    map.put("c", reader.readString());
                     continue;
                 }
                 if ("d".equals(name)) {
@@ -101,9 +94,9 @@ class MongoDatabaseGenerated {
             writer.writeName("a");
             writer.writeInt32(value.a());
             writer.writeName("b");
-            this.b.encode(writer, value.b(), context);
+            writer.writeString(value.b());
             writer.writeName("c");
-            this.c.encode(writer, value.c(), context);
+            writer.writeString(value.c());
             writer.writeName("d");
             this.d.encode(writer, value.d(), context);
             writer.writeEndDocument();
