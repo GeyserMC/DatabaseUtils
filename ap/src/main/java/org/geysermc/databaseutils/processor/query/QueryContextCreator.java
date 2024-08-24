@@ -12,7 +12,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiConsumer;
 import javax.lang.model.element.ExecutableElement;
-import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeMirror;
 import org.checkerframework.checker.nullness.qual.NonNull;
@@ -77,12 +76,6 @@ public class QueryContextCreator {
     }
 
     private ParametersTypeInfo analyseValidateAndCreate() {
-        var parameterTypes =
-                element.getParameters().stream().map(VariableElement::asType).toList();
-        var parameterNames = element.getParameters().stream()
-                .map(VariableElement::getSimpleName)
-                .toList();
-
         var hasColumnParameter = readResult.projection() != null
                 && readResult.projection().columnName() != null
                 && action.projectionColumnIsParameter();
@@ -101,6 +94,15 @@ public class QueryContextCreator {
                 }
 
                 var category = projection.keyword().category();
+                if (!action.supportedProjectionCategories().contains(category)) {
+                    if (action.supportedProjectionCategories().isEmpty()) {
+                        throw new InvalidRepositoryException(
+                                "Action %s doesn't support projection", action.actionType());
+                    }
+                    throw new InvalidRepositoryException(
+                            "Action %s doesn't support projection category %s",
+                            action.actionType(), category.toString());
+                }
                 if (!handledCategories.add(category)) {
                     throw new InvalidRepositoryException(
                             "You can only provide one keyword of category %s, also got %s",
@@ -122,7 +124,7 @@ public class QueryContextCreator {
             validateColumnNames(
                     readResult.bySection().factors(), SectionType.BY, (VariableByFactor input, ColumnInfo column) -> {
                         var keyword = input.keyword();
-                        keyword.validateTypes(column, parameterTypes, parameterNames, handledInputs.get(), typeUtils);
+                        keyword.validateTypes(column, element.getParameters(), handledInputs.get(), typeUtils);
                         handledInputs.addAndGet(keyword.inputCount());
                     });
         }
@@ -134,8 +136,10 @@ public class QueryContextCreator {
                     ($, $$) -> handledInputs.incrementAndGet());
         }
 
+        var parameterCount = element.getParameters().size();
+
         // if there is no By section and there are parameters, it should be the entity or the provided projection
-        if (readResult.bySection() == null && parameterTypes.size() == 1) {
+        if (readResult.bySection() == null && parameterCount == 1) {
             if (parameterInfo.isAnySelf() && !action.allowSelfParameter()) {
                 throw new InvalidRepositoryException(
                         "Action %s (for %s) doesn't support entity as parameter!",
@@ -167,9 +171,8 @@ public class QueryContextCreator {
         }
 
         // Otherwise the expected parameter count should equal the actual
-        if (parameterTypes.size() != handledInputs.get()) {
-            throw new IllegalStateException(
-                    "Expected %s parameters, received %s".formatted(handledInputs, parameterTypes));
+        if (parameterCount != handledInputs.get()) {
+            throw new InvalidRepositoryException("Expected %s parameters, received %s", handledInputs, parameterCount);
         }
         return parameterInfo;
     }
@@ -181,8 +184,8 @@ public class QueryContextCreator {
             if (factor instanceof VariableFactor variable) {
                 var column = info.columnFor(variable.columnName());
                 if (column == null) {
-                    throw new IllegalStateException(
-                            "Could not find column %s for entity %s".formatted(variable.columnName(), info.name()));
+                    throw new InvalidRepositoryException(
+                            "Could not find column %s for entity %s", variable.columnName(), info.name());
                 }
                 variableLast = true;
                 if (customValidation != null) {
@@ -195,7 +198,7 @@ public class QueryContextCreator {
         }
 
         if (!variableLast) {
-            throw new IllegalStateException("Cannot end a section (%s) with a factor!".formatted(type));
+            throw new InvalidRepositoryException("Cannot end a section (%s) with a factor!", type);
         }
     }
 }

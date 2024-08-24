@@ -61,7 +61,7 @@ public abstract class Action {
         return supportsFilter;
     }
 
-    public List<ProjectionKeywordCategory> unsupportedProjectionCategories() {
+    public List<ProjectionKeywordCategory> supportedProjectionCategories() {
         return supportedProjectionCategories;
     }
 

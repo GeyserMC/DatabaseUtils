@@ -8,7 +8,7 @@ package org.geysermc.databaseutils.processor.query.section.by;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-import javax.lang.model.type.TypeMirror;
+import javax.lang.model.element.VariableElement;
 import org.checkerframework.checker.nullness.qual.NonNull;
 import org.geysermc.databaseutils.processor.info.ColumnInfo;
 import org.geysermc.databaseutils.processor.util.CollectionUtils;
@@ -32,20 +32,16 @@ public abstract class InputKeyword {
     }
 
     public void validateTypes(
-            ColumnInfo column,
-            List<TypeMirror> inputTypes,
-            List<? extends CharSequence> inputNames,
-            int typeOffset,
-            TypeUtils typeUtils) {
-
-        if (typeOffset + inputCount() > inputTypes.size()) {
-            throw new IllegalStateException(String.format(
-                    "Expected (at least) %s inputs, got %s", typeOffset + inputCount(), inputTypes.size()));
+            ColumnInfo column, List<? extends VariableElement> inputs, int offset, TypeUtils typeUtils) {
+        if (offset + inputCount() > inputs.size()) {
+            throw new IllegalStateException(
+                    String.format("Expected (at least) %s inputs, got %s", offset + inputCount(), inputs.size()));
         }
 
         for (int i = 0; i < inputCount(); i++) {
-            var type = inputTypes.get(typeOffset + i);
-            var name = inputNames.get(typeOffset + i);
+            var input = inputs.get(offset + i);
+            var type = input.asType();
+            var name = input.getSimpleName();
 
             if (!typeUtils.isAssignable(column.typeName(), type)) {
                 throw new IllegalStateException(String.format(
