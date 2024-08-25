@@ -29,12 +29,14 @@ public final class SqlDatabase extends Database {
             throw new IllegalStateException("The driver for the selected dialect '" + dialect + "' is not present!");
         }
 
+        var config = context.config();
+
         var hikariConfig = new HikariConfig();
-        hikariConfig.setJdbcUrl(context.url());
-        hikariConfig.setUsername(context.username());
-        hikariConfig.setPassword(context.password());
+        hikariConfig.setJdbcUrl(config.url());
+        hikariConfig.setUsername(config.username());
+        hikariConfig.setPassword(config.password());
         hikariConfig.setPoolName(context.poolName());
-        hikariConfig.setMaximumPoolSize(context.connectionPoolSize());
+        hikariConfig.setMaximumPoolSize(config.connectionPoolSize());
 
         this.dataSource = new HikariDataSource(hikariConfig);
     }

@@ -30,17 +30,18 @@ public final class MongodbDatabase extends Database {
     @Override
     public void start(DatabaseContext context, Class<?> databaseImpl) {
         super.start(context, databaseImpl);
+        var config = context.config();
 
-        var connectionString = new ConnectionString(context.url());
+        var connectionString = new ConnectionString(config.url());
         Objects.requireNonNull(connectionString.getDatabase(), "Database has to be specified!");
 
         var settings = MongoClientSettings.builder().applyConnectionString(connectionString);
 
-        if (connectionString.getCredential() == null && (context.username() != null || context.password() != null)) {
+        if (connectionString.getCredential() == null && (config.username() != null || config.password() != null)) {
             settings.credential(MongoCredential.createCredential(
-                    context.username() != null ? context.username() : "",
+                    config.username() != null ? config.username() : "",
                     connectionString.getDatabase(),
-                    context.password() != null ? context.password().toCharArray() : new char[0]));
+                    config.password() != null ? config.password().toCharArray() : new char[0]));
         }
 
         settings.codecRegistry(CodecRegistries.fromRegistries(
@@ -65,10 +66,10 @@ public final class MongodbDatabase extends Database {
         return mongoDatabase;
     }
 
+    @SuppressWarnings("unchecked")
     private CodecRegistry customCodecRegistry(DatabaseContext context) {
         var codecs = new ArrayList<Codec<?>>();
         for (TypeCodec<?> codec : context.registry().typeCodecs()) {
-            //noinspection unchecked
             codecs.add(new CustomTypeCodec((TypeCodec<Object>) codec));
         }
         return CodecRegistries.fromCodecs(codecs);
