@@ -12,4 +12,8 @@ public interface AdvancedRepository extends IRepository<TestEntity> {
     CompletableFuture<Boolean> existsByAOrB(int a, String bb);
 
     void updateCByBAndC(String newValue, String b, String c);
+
+    CompletableFuture<Boolean> deleteByAAndB(int a, String b);
+
+    Integer deleteByAAndC(int a, String c);
 }

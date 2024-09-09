@@ -112,6 +112,7 @@ public final class BasicRepositorySqlImpl implements BasicRepository {
     @Override
     public void update(List<TestEntity> entity) {
         try (Connection __connection = this.dataSource.getConnection()) {
+            __connection.setAutoCommit(false);
             try (PreparedStatement __statement = __connection.prepareStatement("update hello set c=?,d=? where a=? and b=?")) {
                 int __count = 0;
                 for (var __element : entity) {
@@ -120,7 +121,7 @@ public final class BasicRepositorySqlImpl implements BasicRepository {
                     __statement.setInt(3, __element.a());
                     __statement.setString(4, __element.b());
                     __statement.addBatch();
-                    if (__count % 250 == 0) {
+                    if (++__count % 500 == 0) {
                         __statement.executeBatch();
                     }
                 }
@@ -173,6 +174,7 @@ public final class BasicRepositorySqlImpl implements BasicRepository {
     @Override
     public void insert(List<TestEntity> entities) {
         try (Connection __connection = this.dataSource.getConnection()) {
+            __connection.setAutoCommit(false);
             try (PreparedStatement __statement = __connection.prepareStatement("insert into hello (a,b,c,d) values (?,?,?,?)")) {
                 int __count = 0;
                 for (var __element : entities) {
@@ -181,7 +183,7 @@ public final class BasicRepositorySqlImpl implements BasicRepository {
                     __statement.setString(3, __element.c());
                     __statement.setBytes(4, this.__d.encode(__element.d()));
                     __statement.addBatch();
-                    if (__count % 250 == 0) {
+                    if (++__count % 500 == 0) {
                         __statement.executeBatch();
                     }
                 }
@@ -216,13 +218,14 @@ public final class BasicRepositorySqlImpl implements BasicRepository {
     @Override
     public void delete(List<TestEntity> entities) {
         try (Connection __connection = this.dataSource.getConnection()) {
+            __connection.setAutoCommit(false);
             try (PreparedStatement __statement = __connection.prepareStatement("delete from hello where a=? and b=?")) {
                 int __count = 0;
                 for (var __element : entities) {
                     __statement.setInt(1, __element.a());
                     __statement.setString(2, __element.b());
                     __statement.addBatch();
-                    if (__count % 250 == 0) {
+                    if (++__count % 500 == 0) {
                         __statement.executeBatch();
                     }
                 }

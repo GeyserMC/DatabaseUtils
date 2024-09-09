@@ -156,12 +156,23 @@ public class MongoRepositoryGenerator extends RepositoryGenerator {
     @Override
     public void addDelete(QueryContext context, MethodSpec.Builder spec) {
         wrapInCompletableFuture(spec, context.returnInfo().async(), () -> {
+            boolean needsUpdatedCount = context.typeUtils().isType(Integer.class, context.returnType())
+                    || context.typeUtils().isType(Boolean.class, context.returnType());
+            if (needsUpdatedCount) {
+                spec.addStatement("int __count");
+            }
+
             // for now, it's only either: delete a (list of) entities, or deleteByAAndB
             if (context.parametersInfo().isSelf()) {
                 var filter = createFilter(context.entityInfo()
                         .keyColumnsAsFactors(
                                 AndFactor.INSTANCE, context.parametersInfo().firstName()));
-                spec.addStatement("this.collection.deleteOne($L)", filter);
+
+                if (needsUpdatedCount) {
+                    spec.addStatement("__count = this.collection.deleteOne($L).getDeletedCount()", filter);
+                } else {
+                    spec.addStatement("this.collection.deleteOne($L)", filter);
+                }
             } else if (context.parametersInfo().isSelfCollection()) {
                 spec.addStatement(
                         "var __bulkOperations = new $T<$T<$T>>()",
@@ -177,13 +188,31 @@ public class MongoRepositoryGenerator extends RepositoryGenerator {
                         createFilter(context.entityInfo().keyColumnsAsFactors(AndFactor.INSTANCE, "__entry")));
                 spec.endControlFlow();
 
-                spec.addStatement("this.collection.bulkWrite(__bulkOperations)");
+                if (needsUpdatedCount) {
+                    spec.addStatement("__count = this.collection.bulkWrite(__bulkOperations).getDeletedCount()");
+                } else {
+                    spec.addStatement("this.collection.bulkWrite(__bulkOperations)");
+                }
             } else {
-                spec.addStatement("this.collection.deleteMany($L)", createFilter(context.bySectionFactors()));
+                if (needsUpdatedCount) {
+                    spec.addStatement(
+                            "__count = (int) this.collection.deleteMany($L).getDeletedCount()",
+                            createFilter(context.bySectionFactors()));
+                } else {
+                    //todo technically it can be a deleteOne if the factors contain all the key columns
+                    spec.addStatement("this.collection.deleteMany($L)", createFilter(context.bySectionFactors()));
+                }
             }
 
-            if (context.returnInfo().async()) {
+            if (context.returnInfo().async() && !needsUpdatedCount) {
                 spec.addStatement("return null");
+                return;
+            }
+
+            if (context.typeUtils().isType(Integer.class, context.returnType())) {
+                spec.addStatement("return __count");
+            } else if (context.typeUtils().isType(Boolean.class, context.returnType())) {
+                spec.addStatement("return __count > 0");
             }
         });
         typeSpec.addMethod(spec.build());

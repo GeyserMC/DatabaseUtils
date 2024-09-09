@@ -3,6 +3,7 @@ package test.advanced;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.model.Filters;
 import java.lang.Boolean;
+import java.lang.Integer;
 import java.lang.Override;
 import java.lang.String;
 import java.util.UUID;
@@ -42,5 +43,21 @@ public final class AdvancedRepositoryMongoImpl implements AdvancedRepository {
     @Override
     public void updateCByBAndC(String newValue, String b, String c) {
         this.collection.updateMany(Filters.and(Filters.eq("b", b), Filters.eq("c", c)), new Document("c", newValue));
+    }
+
+    @Override
+    public CompletableFuture<Boolean> deleteByAAndB(int a, String b) {
+        return CompletableFuture.supplyAsync(() -> {
+            int __count;
+            __count = (int) this.collection.deleteMany(Filters.and(Filters.eq("a", a), Filters.eq("b", b))).getDeletedCount();
+            return __count > 0;
+        } , this.database.executorService());
+    }
+
+    @Override
+    public Integer deleteByAAndC(int a, String c) {
+        int __count;
+        __count = (int) this.collection.deleteMany(Filters.and(Filters.eq("a", a), Filters.eq("c", c))).getDeletedCount();
+        return __count;
     }
 }

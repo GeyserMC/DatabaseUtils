@@ -40,7 +40,7 @@ import org.geysermc.databaseutils.processor.util.InvalidRepositoryException;
 import org.geysermc.databaseutils.processor.util.TypeUtils;
 
 public final class SqlRepositoryGenerator extends RepositoryGenerator {
-    private static final int BATCH_SIZE = 250;
+    private static final int BATCH_SIZE = 500;
 
     public SqlRepositoryGenerator() {
         super(DatabaseCategory.SQL);
@@ -160,7 +160,15 @@ public final class SqlRepositoryGenerator extends RepositoryGenerator {
     private void addUpdateQueryData(MethodSpec.Builder spec, QueryContext context, QueryBuilder builder) {
         addBySectionData(spec, context, builder, () -> {
             if (!context.parametersInfo().isSelfCollection()) {
-                spec.addStatement("__statement.executeUpdate()");
+                if (context.typeUtils().isType(Integer.class, context.returnType())) {
+                    spec.addStatement("return __statement.executeUpdate()");
+                    return;
+                } else if (context.typeUtils().isType(Boolean.class, context.returnType())) {
+                    spec.addStatement("return __statement.executeUpdate() > 0");
+                    return;
+                } else {
+                    spec.addStatement("__statement.executeUpdate()");
+                }
             }
 
             if (context.typeUtils().isType(Void.class, context.returnType())) {
@@ -168,6 +176,10 @@ public final class SqlRepositoryGenerator extends RepositoryGenerator {
             } else if (context.typeUtils().isType(context.entityType().asType(), context.returnType())) {
                 // todo support also creating an entity type from the given parameters
                 spec.addStatement("return $L", context.parametersInfo().firstName());
+            } else if (context.typeUtils().isType(Integer.class, context.returnType())) {
+                spec.addStatement("return __updateCount");
+            } else if (context.typeUtils().isType(Boolean.class, context.returnType())) {
+                spec.addStatement("return __updateCount > 0");
             } else {
                 throw new InvalidRepositoryException(
                         "Return type can be either void or %s but got %s",
@@ -180,6 +192,11 @@ public final class SqlRepositoryGenerator extends RepositoryGenerator {
             MethodSpec.Builder spec, QueryContext context, QueryBuilder builder, Runnable execute) {
         wrapInCompletableFuture(spec, context.returnInfo().async(), () -> {
             spec.beginControlFlow("try ($T __connection = this.dataSource.getConnection())", Connection.class);
+
+            if (context.parametersInfo().isSelfCollection()) {
+                spec.addStatement("__connection.setAutoCommit(false)");
+            }
+
             spec.beginControlFlow(
                     "try ($T __statement = __connection.prepareStatement($S))",
                     PreparedStatement.class,
@@ -190,8 +207,14 @@ public final class SqlRepositoryGenerator extends RepositoryGenerator {
                 parameterName = context.parametersInfo().firstName();
             }
 
+            boolean needsUpdatedCount = context.typeUtils().isType(Integer.class, context.returnType())
+                    || context.typeUtils().isType(Boolean.class, context.returnType());
+
             if (context.parametersInfo().isSelfCollection()) {
                 spec.addStatement("int __count = 0");
+                if (needsUpdatedCount) {
+                    spec.addStatement("int __updateCount = 0");
+                }
                 spec.beginControlFlow("for (var __element : $L)", parameterName);
                 parameterName = "__element";
             }
@@ -216,12 +239,13 @@ public final class SqlRepositoryGenerator extends RepositoryGenerator {
             if (context.parametersInfo().isSelfCollection()) {
                 spec.addStatement("__statement.addBatch()");
 
-                spec.beginControlFlow("if (__count % $L == 0)", BATCH_SIZE);
-                spec.addStatement("__statement.executeBatch()");
+                spec.beginControlFlow("if (++__count % $L == 0)", BATCH_SIZE);
+                executeBatchAndUpdateUpdateCount(spec, needsUpdatedCount);
                 spec.endControlFlow();
 
                 spec.endControlFlow();
-                spec.addStatement("__statement.executeBatch()");
+
+                executeBatchAndUpdateUpdateCount(spec, needsUpdatedCount);
                 spec.addStatement("__connection.commit()");
             }
 
@@ -239,6 +263,23 @@ public final class SqlRepositoryGenerator extends RepositoryGenerator {
             spec.endControlFlow();
         });
         typeSpec.addMethod(spec.build());
+    }
+
+    private void executeBatchAndUpdateUpdateCount(MethodSpec.Builder spec, boolean needsUpdatedCount) {
+        if (!needsUpdatedCount) {
+            spec.addStatement("__statement.executeBatch()");
+            return;
+        }
+
+        // todo this can also be used to check which items were and weren't inserted etc.
+        spec.addStatement("int[] __affected = __statement.executeBatch()");
+        spec.beginControlFlow("for (int __updated : __affected)");
+
+        spec.beginControlFlow("if (__updated > 0)");
+        spec.addStatement("__updateCount += __updated");
+        spec.endControlFlow();
+
+        spec.endControlFlow();
     }
 
     private String createSetFor(QueryContext context, QueryBuilder builder) {

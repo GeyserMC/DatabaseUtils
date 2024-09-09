@@ -84,4 +84,32 @@ public final class AdvancedRepositorySqlImpl implements AdvancedRepository {
             throw new CompletionException("Unexpected error occurred", __exception);
         }
     }
+
+    @Override
+    public CompletableFuture<Boolean> deleteByAAndB(int a, String b) {
+        return CompletableFuture.supplyAsync(() -> {
+            try (Connection __connection = this.dataSource.getConnection()) {
+                try (PreparedStatement __statement = __connection.prepareStatement("delete from hello where a=? and b=?")) {
+                    __statement.setInt(1, a);
+                    __statement.setString(2, b);
+                    return __statement.executeUpdate() > 0;
+                }
+            } catch (SQLException __exception) {
+                throw new CompletionException("Unexpected error occurred", __exception);
+            }
+        } , this.database.executorService());
+    }
+
+    @Override
+    public Integer deleteByAAndC(int a, String c) {
+        try (Connection __connection = this.dataSource.getConnection()) {
+            try (PreparedStatement __statement = __connection.prepareStatement("delete from hello where a=? and c=?")) {
+                __statement.setInt(1, a);
+                __statement.setString(2, c);
+                return __statement.executeUpdate();
+            }
+        } catch (SQLException __exception) {
+            throw new CompletionException("Unexpected error occurred", __exception);
+        }
+    }
 }
