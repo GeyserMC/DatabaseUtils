@@ -35,12 +35,25 @@ This project tries to support the following SQL dialects:
 
 - H2
 - (Microsoft) SQL Server
+- MariaDB
 - MySQL
 - Oracle Database
 - PostgreSQL
 - SQLite
 
-However not every data type has the same name / is available on each dialect.
+However not everything is the same across dialects.
+
+### Missing functionality for specific dialects
+
+#### TestEntity deleteByAAndB(String, String)
+This behaviour doesn't work on MySQL (not MariaDB) and H2.
+This is because every dialect but MySQL and H2 support 'REPLACING' or a variant of it.
+For those two dialect we have to fetch a record first and then delete it (inside a transaction).
+The current codebase is not flexible enough to do these wildly different behaviours per dialect, 
+but will be supported in the future. 
+
+### Different data types across dialects
+Not every data type has the same name / is available on each dialect.
 These are the base type conversions:
 
 | Java Type | SQL type         | Reason / remarks                                                |

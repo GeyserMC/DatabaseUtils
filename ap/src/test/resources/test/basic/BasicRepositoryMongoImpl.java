@@ -1,5 +1,6 @@
 package test.basic;
 
+import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.model.DeleteOneModel;
 import com.mongodb.client.model.Filters;
@@ -19,13 +20,13 @@ import org.geysermc.databaseutils.mongo.MongodbDatabase;
 
 public final class BasicRepositoryMongoImpl implements BasicRepository {
     private final MongodbDatabase database;
-
+    private final MongoClient mongoClient;
     private final MongoCollection<TestEntity> collection;
-
     private final TypeCodec<UUID> __d;
 
     public BasicRepositoryMongoImpl(MongodbDatabase database, TypeCodecRegistry registry) {
         this.database = database;
+        this.mongoClient = database.mongoClient();
         this.collection = database.mongoDatabase().getCollection("hello", TestEntity.class);
         this.__d = registry.requireCodecFor(UUID.class);
     }

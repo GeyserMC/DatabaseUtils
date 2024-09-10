@@ -5,6 +5,7 @@
  */
 package org.geysermc.databaseutils.processor.type.mongo;
 
+import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.model.DeleteOneModel;
 import com.mongodb.client.model.Filters;
@@ -18,10 +19,13 @@ import com.squareup.javapoet.ParameterizedTypeName;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 import javax.lang.model.element.Modifier;
 import org.bson.Document;
+import org.bson.conversions.Bson;
 import org.checkerframework.checker.nullness.qual.NonNull;
 import org.geysermc.databaseutils.DatabaseCategory;
+import org.geysermc.databaseutils.processor.info.ColumnInfo;
 import org.geysermc.databaseutils.processor.query.QueryContext;
 import org.geysermc.databaseutils.processor.query.section.by.keyword.EqualsKeyword;
 import org.geysermc.databaseutils.processor.query.section.by.keyword.LessThanKeyword;
@@ -42,12 +46,14 @@ public class MongoRepositoryGenerator extends RepositoryGenerator {
 
     @Override
     protected void onConstructorBuilder(MethodSpec.Builder builder) {
+        typeSpec.addField(MongoClient.class, "mongoClient", Modifier.PRIVATE, Modifier.FINAL);
+        builder.addStatement("this.mongoClient = database.mongoClient()");
+
         typeSpec.addField(
                 ParameterizedTypeName.get(ClassName.get(MongoCollection.class), ClassName.get(entityInfo.type())),
                 "collection",
                 Modifier.PRIVATE,
                 Modifier.FINAL);
-
         builder.addStatement(
                 "this.collection = database.mongoDatabase().getCollection($S, $T.class)",
                 entityInfo.name(),
@@ -104,7 +110,6 @@ public class MongoRepositoryGenerator extends RepositoryGenerator {
 
     @Override
     public void addUpdate(QueryContext context, MethodSpec.Builder spec) {
-        // todo support projection having multiple columns
         wrapInCompletableFuture(spec, context.returnInfo().async(), () -> {
             // for now, it's only either: update a (list of) entities, or updateAByBAndC
             // todo keep track of which fields are changed to make sure we only update the fields who have been changed
@@ -133,17 +138,11 @@ public class MongoRepositoryGenerator extends RepositoryGenerator {
                 spec.endControlFlow();
 
                 spec.addStatement("this.collection.bulkWrite(__bulkOperations)");
-            } else if (context.projection() != null && context.projection().columnName() != null) {
-                spec.addStatement(
-                        "this.collection.updateMany($L, new $T($S, $L))",
-                        createFilter(context.bySectionFactors()),
-                        Document.class,
-                        context.projection().columnName(),
-                        context.parametersInfo().columnParameter());
             } else {
-                throw new InvalidRepositoryException(
-                        "Expected either a list of entities to update, an entity or a field to update for %s",
-                        context.parametersInfo().element());
+                spec.addStatement(
+                        "this.collection.updateMany($L, $L)",
+                        createFilter(context.bySectionFactors()),
+                        createDocument(context.parametersInfo().remaining()));
             }
 
             if (context.returnInfo().async()) {
@@ -199,8 +198,55 @@ public class MongoRepositoryGenerator extends RepositoryGenerator {
                             "__count = (int) this.collection.deleteMany($L).getDeletedCount()",
                             createFilter(context.bySectionFactors()));
                 } else {
-                    //todo technically it can be a deleteOne if the factors contain all the key columns
-                    spec.addStatement("this.collection.deleteMany($L)", createFilter(context.bySectionFactors()));
+                    var filter = createFilter(context.bySectionFactors());
+                    if (context.returnInfo().isSelf()) {
+                        spec.addStatement("return this.collection.findOneAndDelete($L)", filter);
+                        return;
+                    } else if (context.returnInfo().isSelfCollection()) {
+                        spec.addStatement("var __session = this.mongoClient.startSession()");
+                        spec.beginControlFlow("try");
+                        spec.addStatement("__session.startTransaction()");
+
+                        spec.addStatement(
+                                "var __find = this.collection.find(__session, $L)$L$L",
+                                filter,
+                                createSort(context),
+                                createProjection(context));
+
+                        spec.addStatement("var __toDelete = new $T<$T>()", ArrayList.class, Bson.class);
+                        spec.beginControlFlow("for (var __found : __find)");
+                        spec.addStatement(
+                                "__toDelete.add($T.and($L))",
+                                Filters.class,
+                                entityInfo.keyColumns().stream()
+                                        .map(key ->
+                                                "Filters.eq(\"%s\", __found.%s())".formatted(key.name(), key.name()))
+                                        .collect(Collectors.joining(", ")));
+                        spec.endControlFlow();
+
+                        spec.addStatement(
+                                "var __deletedCount = this.collection.deleteMany(__session, $T.or(__toDelete)).getDeletedCount()",
+                                Filters.class);
+
+                        spec.beginControlFlow("if (__find.size() != __deletedCount)");
+                        spec.addStatement(
+                                "throw new $T($S.formatted(__find.size(), __deletedCount))",
+                                IllegalStateException.class,
+                                "Found %s documents but deleted %s documents");
+                        spec.endControlFlow();
+
+                        spec.addStatement("__session.commitTransaction()");
+                        spec.addStatement("return __find");
+                        spec.nextControlFlow("catch ($T __exception)", Exception.class);
+                        spec.addStatement("__session.abortTransaction()");
+                        spec.addStatement("throw __exception");
+                        spec.nextControlFlow("finally");
+                        spec.addStatement("__session.close()");
+                        spec.endControlFlow();
+                        return;
+                    }
+                    // todo technically it can be a deleteOne if the factors contain all the key columns
+                    spec.addStatement("this.collection.deleteMany($L)", filter);
                 }
             }
 
@@ -275,6 +321,7 @@ public class MongoRepositoryGenerator extends RepositoryGenerator {
             return index + 1;
         }
 
+        // todo and + or support more than 2. So e.g. ByAAndBAndC could be and(a, b, c) instead of and(a, and(b, c))
         if (factor instanceof AndFactor) {
             builder.add("$T.and(", Filters.class);
         } else if (factor instanceof OrFactor) {
@@ -294,7 +341,7 @@ public class MongoRepositoryGenerator extends RepositoryGenerator {
         var builder = CodeBlock.builder();
 
         if (context.projection() != null) {
-            for (var projection : context.projection().notDistinctProjectionKeywords()) {
+            for (var projection : context.projection().nonSpecialProjectionKeywords()) {
                 if (projection instanceof TopProjectionKeyword keyword) {
                     builder.add(".limit($L)", keyword.limit());
                     continue;
@@ -304,6 +351,11 @@ public class MongoRepositoryGenerator extends RepositoryGenerator {
                     continue;
                 }
                 throw new InvalidRepositoryException("Unsupported projection %s", projection.name());
+            }
+
+            var columnName = context.projection().columnName();
+            if (columnName != null) {
+                builder.add(".map($T::$L)", context.entityInfo().asType(), columnName);
             }
         }
 
@@ -357,5 +409,17 @@ public class MongoRepositoryGenerator extends RepositoryGenerator {
         }
 
         return builder.add("))").build();
+    }
+
+    /*
+     * Creates a document with every column appended. The key is the column name as string and the value is the column
+     * name as parameter/variable
+     */
+    private CodeBlock createDocument(List<ColumnInfo> columns) {
+        var builder = CodeBlock.builder().add("new $T()", Document.class);
+        for (ColumnInfo column : columns) {
+            builder.add(".append($S, $L)", column.name(), column.name());
+        }
+        return builder.build();
     }
 }

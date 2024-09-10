@@ -59,7 +59,7 @@ final class CredentialsFileHandler {
         return switch (type) {
             case H2 -> configFor("jdbc:h2:./database", "sa");
             case SQL_SERVER -> configFor("jdbc:sqlserver://localhost;encrypt=true;integratedSecurity=true;");
-            case MYSQL -> configFor("jdbc:mysql://localhost/database");
+            case MYSQL, MARIADB -> configFor("jdbc:mysql://localhost/database");
             case ORACLE_DATABASE -> configFor("jdbc:oracle:thin:@//localhost/service");
             case POSTGRESQL -> configFor("jdbc:postgresql://localhost/database");
             case SQLITE -> configFor("jdbc:sqlite:./database");

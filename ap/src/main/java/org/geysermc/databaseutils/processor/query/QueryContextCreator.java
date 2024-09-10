@@ -70,18 +70,20 @@ public class QueryContextCreator {
     }
 
     public QueryContext create() {
-        var parameterInfo = analyseValidateAndCreate();
-        return new QueryContext(
-                info, readResult, parameterInfo, new ReturnTypeInfo(async, returnType, typeUtils), typeUtils);
+        return analyseValidateAndCreate();
     }
 
-    private ParametersTypeInfo analyseValidateAndCreate() {
-        var hasColumnParameter = readResult.projection() != null
-                && readResult.projection().columnName() != null
-                && action.projectionColumnIsParameter();
-        var parameterInfo = new ParametersTypeInfo(element, info.type().asType(), typeUtils, hasColumnParameter);
+    private QueryContext analyseValidateAndCreate() {
+        var parameterInfo = new ParametersTypeInfo(element, readResult, action, info, typeUtils);
+        var returnTypeInfo = new ReturnTypeInfo(async, returnType, info.asType(), typeUtils);
+        QueryContext queryContext = new QueryContext(info, readResult, parameterInfo, returnTypeInfo, typeUtils);
 
         AtomicInteger handledInputs = new AtomicInteger();
+
+        // any self is always the first parameter, and not more
+        if (parameterInfo.isAnySelf()) {
+            handledInputs.incrementAndGet();
+        }
 
         if (readResult.projection() != null) {
             validateColumnNames(readResult.projection().projections(), SectionType.PROJECTION, null);
@@ -114,10 +116,6 @@ public class QueryContextCreator {
                             projection.keyword().name());
                 }
             }
-
-            if (action.projectionColumnIsParameter()) {
-                handledInputs.incrementAndGet();
-            }
         }
 
         if (readResult.bySection() != null) {
@@ -129,11 +127,27 @@ public class QueryContextCreator {
                     });
         }
 
+        if (action.remainingParametersAsColumns()) {
+            handledInputs.addAndGet(parameterInfo.remaining().size());
+        }
+
         if (readResult.orderBySection() != null) {
+            // todo why is handledInputs increased here?
             validateColumnNames(
                     readResult.orderBySection().factors(),
                     SectionType.ORDER_BY,
                     ($, $$) -> handledInputs.incrementAndGet());
+        }
+
+        if (returnTypeInfo.isAnySelf() && !action.allowReturnAnySelfOrColumn()) {
+            throw new InvalidRepositoryException(
+                    "Action %s (for %s) doesn't support returning an entity or an entity collection!",
+                    action.actionType(), element);
+        }
+        if (queryContext.hasProjectionColumnName() && !action.allowReturnAnySelfOrColumn()) {
+            throw new InvalidRepositoryException(
+                    "Action %S (for %s) doesn't support returning a column of the entity!",
+                    action.actionType(), element);
         }
 
         var parameterCount = element.getParameters().size();
@@ -142,55 +156,60 @@ public class QueryContextCreator {
         if (readResult.bySection() == null && parameterCount == 1) {
             if (parameterInfo.isAnySelf() && !action.allowSelfParameter()) {
                 throw new InvalidRepositoryException(
-                        "Action %s (for %s) doesn't support entity as parameter!",
-                        action.actionType(), element.getSimpleName());
-            }
-            if (parameterInfo.isSelfCollection() && !action.allowReturnSelfCollection()) {
-                throw new InvalidRepositoryException(
-                        "Action %s (for %s) doesn't support returning an entity collection!",
-                        action.actionType(), element.getSimpleName());
+                        "Action %s (for %s) doesn't support entity as parameter!", action.actionType(), element);
             }
 
+            boolean validated = false;
             if (readResult.projection() != null) {
                 var column = info.columnFor(readResult.projection().columnName());
                 // specifying the columnName is optional
                 if (column != null) {
-                    action.validate(info, element.getSimpleName(), returnType, typeUtils, type -> {
+                    action.validate(queryContext, type -> {
                         if (!typeUtils.isAssignable(type, column.typeName())) {
                             throw new InvalidRepositoryException(
                                     "Expected response of %s to be assignable from %s",
                                     element.getSimpleName(), column.typeName());
                         }
                     });
-                    return parameterInfo;
+                    validated = true;
                 }
             }
 
-            action.validate(info, element.getSimpleName(), returnType, typeUtils, null);
-            return parameterInfo;
+            if (!validated) {
+                action.validate(queryContext, null);
+            }
         }
 
-        // Otherwise the expected parameter count should equal the actual
+        // The expected parameter count should equal the actual
         if (parameterCount != handledInputs.get()) {
             throw new InvalidRepositoryException("Expected %s parameters, received %s", handledInputs, parameterCount);
         }
-        return parameterInfo;
+        return queryContext;
     }
 
     private <T extends VariableFactor> void validateColumnNames(
             List<? extends Factor> factors, SectionType type, BiConsumer<T, ColumnInfo> customValidation) {
         var variableLast = true;
         for (Factor factor : factors) {
+            CharSequence columnName = null;
             if (factor instanceof VariableFactor variable) {
-                var column = info.columnFor(variable.columnName());
+                columnName = variable.columnName();
+            } else if (factor instanceof ProjectionFactor projection) {
+                if (projection.columnName() != null) {
+                    columnName = projection.columnName();
+                }
+            }
+
+            if (columnName != null) {
+                var column = info.columnFor(columnName);
                 if (column == null) {
                     throw new InvalidRepositoryException(
-                            "Could not find column %s for entity %s", variable.columnName(), info.name());
+                            "Could not find column %s for entity %s", columnName, info.name());
                 }
                 variableLast = true;
                 if (customValidation != null) {
-                    //noinspection unchecked
-                    customValidation.accept((T) variable, column);
+                    //noinspection DataFlowIssue,unchecked
+                    customValidation.accept((T) factor, column);
                 }
             } else {
                 variableLast = false;

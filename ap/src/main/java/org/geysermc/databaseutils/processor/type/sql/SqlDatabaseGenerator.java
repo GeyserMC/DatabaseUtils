@@ -5,7 +5,6 @@
  */
 package org.geysermc.databaseutils.processor.type.sql;
 
-import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.CodeBlock;
 import com.squareup.javapoet.MethodSpec;
 import java.sql.Connection;
@@ -63,7 +62,7 @@ public class SqlDatabaseGenerator extends DatabaseGenerator {
                     "\"$L \" + $T.sqlTypeFor($T.class, dialect) ",
                     column.name(),
                     SqlTypeMappingRegistry.class,
-                    ClassName.bestGuess(column.typeName().toString()));
+                    column.asType());
         }
         builder.add("+\n\")\"");
         return builder.build();

@@ -18,17 +18,18 @@ import java.util.concurrent.CompletionException;
 import org.geysermc.databaseutils.codec.TypeCodec;
 import org.geysermc.databaseutils.codec.TypeCodecRegistry;
 import org.geysermc.databaseutils.sql.SqlDatabase;
+import org.geysermc.databaseutils.sql.SqlDialect;
 
 public final class BasicRepositorySqlImpl implements BasicRepository {
     private final SqlDatabase database;
-
     private final HikariDataSource dataSource;
-
+    private final SqlDialect dialect;
     private final TypeCodec<UUID> __d;
 
     public BasicRepositorySqlImpl(SqlDatabase database, TypeCodecRegistry registry) {
         this.database = database;
         this.dataSource = database.dataSource();
+        this.dialect = database.dialect();
         this.__d = registry.requireCodecFor(UUID.class);
     }
 

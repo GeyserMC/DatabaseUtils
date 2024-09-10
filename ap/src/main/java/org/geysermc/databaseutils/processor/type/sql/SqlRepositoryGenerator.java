@@ -20,6 +20,7 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletionException;
+import java.util.stream.Collectors;
 import javax.lang.model.element.Modifier;
 import org.geysermc.databaseutils.DatabaseCategory;
 import org.geysermc.databaseutils.processor.info.ColumnInfo;
@@ -32,12 +33,14 @@ import org.geysermc.databaseutils.processor.query.section.factor.OrFactor;
 import org.geysermc.databaseutils.processor.query.section.factor.VariableByFactor;
 import org.geysermc.databaseutils.processor.query.section.projection.ProjectionKeyword;
 import org.geysermc.databaseutils.processor.query.section.projection.keyword.AvgProjectionKeyword;
+import org.geysermc.databaseutils.processor.query.section.projection.keyword.FirstProjectionKeyword;
 import org.geysermc.databaseutils.processor.query.section.projection.keyword.SkipProjectionKeyword;
 import org.geysermc.databaseutils.processor.query.section.projection.keyword.TopProjectionKeyword;
 import org.geysermc.databaseutils.processor.type.RepositoryGenerator;
 import org.geysermc.databaseutils.processor.type.sql.QueryBuilder.QueryBuilderColumn;
 import org.geysermc.databaseutils.processor.util.InvalidRepositoryException;
 import org.geysermc.databaseutils.processor.util.TypeUtils;
+import org.geysermc.databaseutils.sql.SqlDialect;
 
 public final class SqlRepositoryGenerator extends RepositoryGenerator {
     private static final int BATCH_SIZE = 500;
@@ -50,6 +53,9 @@ public final class SqlRepositoryGenerator extends RepositoryGenerator {
     protected void onConstructorBuilder(MethodSpec.Builder builder) {
         typeSpec.addField(HikariDataSource.class, "dataSource", Modifier.PRIVATE, Modifier.FINAL);
         builder.addStatement("this.dataSource = database.dataSource()");
+
+        typeSpec.addField(SqlDialect.class, "dialect", Modifier.PRIVATE, Modifier.FINAL);
+        builder.addStatement("this.dialect = database.dialect()");
     }
 
     @Override
@@ -60,46 +66,7 @@ public final class SqlRepositoryGenerator extends RepositoryGenerator {
         if (context.hasBySection()) {
             builder.add("where %s", this::createWhereForFactors);
         }
-
-        addExecuteQueryData(spec, context, builder, () -> {
-            if (context.returnInfo().isCollection()) {
-                spec.addStatement(
-                        "$T __responses = new $T<>()",
-                        context.returnType(),
-                        context.typeUtils().collectionImplementationFor(context.returnType()));
-                spec.beginControlFlow("while (__result.next())");
-            } else {
-                spec.beginControlFlow("if (!__result.next())");
-                spec.addStatement("return null");
-                spec.endControlFlow();
-            }
-
-            var arguments = new ArrayList<String>();
-            for (ColumnInfo column : context.columns()) {
-                var columnType = ClassName.bestGuess(column.typeName().toString());
-
-                var getFormat = jdbcGetFor(column.typeName(), "__result.%s");
-                if (TypeUtils.needsTypeCodec(column.typeName())) {
-                    getFormat = CodeBlock.of("this.__$L.decode($L)", column.name(), getFormat)
-                            .toString();
-                }
-
-                spec.addStatement("$T _$L = %s".formatted(getFormat), columnType, column.name(), column.name());
-                arguments.add("_" + column.name());
-            }
-
-            if (context.returnInfo().isCollection()) {
-                spec.addStatement(
-                        "__responses.add(new $T($L))",
-                        ClassName.get(context.entityType()),
-                        String.join(", ", arguments));
-                spec.endControlFlow();
-                spec.addStatement("return __responses");
-            } else {
-                spec.addStatement(
-                        "return new $T($L)", ClassName.get(context.entityType()), String.join(", ", arguments));
-            }
-        });
+        executeAndReturn(spec, context, builder);
     }
 
     @Override
@@ -145,7 +112,103 @@ public final class SqlRepositoryGenerator extends RepositoryGenerator {
         } else {
             builder.add("where %s", this::createWhereForKeys);
         }
-        addUpdateQueryData(spec, context, builder);
+
+        boolean notSelfToSelf =
+                !context.parametersInfo().isSelf() && context.returnInfo().isAnySelf();
+        if (!notSelfToSelf) {
+            addUpdateQueryData(spec, context, builder);
+            return;
+        }
+
+        spec.addStatement("String __sql");
+        spec.beginControlFlow(
+                "if (this.dialect == $T.POSTGRESQL || this.dialect == $T.ORACLE_DATABASE || this.dialect == $T.SQLITE || this.dialect == $T.MARIADB)",
+                SqlDialect.class,
+                SqlDialect.class,
+                SqlDialect.class,
+                SqlDialect.class);
+        spec.addStatement("__sql = $S", builder.copy().addEndRaw("returning *"));
+        spec.nextControlFlow("else if (this.dialect == $T.SQL_SERVER)", SqlDialect.class);
+        spec.addStatement("__sql = $S", builder.copy().addRawBefore("where", "output deleted.*"));
+        spec.nextControlFlow(
+                "else if (this.dialect == $T.H2 || this.dialect == $T.MYSQL)", SqlDialect.class, SqlDialect.class);
+        // todo implement this using two separate queries with a transaction
+        spec.addStatement("throw new $T($S)", IllegalStateException.class, "This behaviour is not yet implemented!");
+        spec.nextControlFlow("else");
+        spec.addStatement("throw new $T($S + dialect)", IllegalStateException.class, "Unexpected dialect ");
+        spec.endControlFlow();
+
+        executeAndReturn(spec, context, builder.dialectDepending(true));
+    }
+
+    private void executeAndReturn(MethodSpec.Builder spec, QueryContext context, QueryBuilder builder) {
+        addExecuteQueryData(spec, context, builder, () -> {
+            if (context.returnInfo().isCollection()) {
+                spec.addStatement(
+                        "$T __responses = new $T<>()",
+                        context.returnType(),
+                        context.typeUtils().collectionImplementationFor(context.returnType()));
+                spec.beginControlFlow("while (__result.next())");
+            } else {
+                spec.beginControlFlow("if (!__result.next())");
+                spec.addStatement("return null");
+                spec.endControlFlow();
+            }
+
+            if (context.hasProjectionColumnName()) {
+                var column = context.projectionColumnInfo();
+
+                var block = CodeBlock.builder();
+
+                if (context.returnInfo().isCollection()) {
+                    block.add("__responses.add(");
+                } else {
+                    block.add("return ");
+                }
+
+                var getFormat = jdbcGetFor(column.typeName(), "__result.%s");
+                if (TypeUtils.needsTypeCodec(column.typeName())) {
+                    getFormat = CodeBlock.of("this.__$L.decode($L)", column.name(), getFormat)
+                            .toString();
+                }
+
+                block.add("%s".formatted(getFormat), column.name());
+
+                if (context.returnInfo().isCollection()) {
+                    block.add(")");
+                    spec.addStatement(block.build());
+                    spec.endControlFlow();
+                    spec.addStatement("return __responses");
+                } else {
+                    spec.addStatement(block.build());
+                }
+                return;
+            }
+
+            var arguments = new ArrayList<String>();
+            for (ColumnInfo column : context.columns()) {
+                var getFormat = jdbcGetFor(column.typeName(), "__result.%s");
+                if (TypeUtils.needsTypeCodec(column.typeName())) {
+                    getFormat = CodeBlock.of("this.__$L.decode($L)", column.name(), getFormat)
+                            .toString();
+                }
+
+                spec.addStatement("$T _$L = %s".formatted(getFormat), column.asType(), column.name(), column.name());
+                arguments.add("_" + column.name());
+            }
+
+            if (context.returnInfo().isCollection()) {
+                spec.addStatement(
+                        "__responses.add(new $T($L))",
+                        ClassName.get(context.entityType()),
+                        String.join(", ", arguments));
+                spec.endControlFlow();
+                spec.addStatement("return __responses");
+            } else {
+                spec.addStatement(
+                        "return new $T($L)", ClassName.get(context.entityType()), String.join(", ", arguments));
+            }
+        });
     }
 
     private void addExecuteQueryData(
@@ -173,16 +236,19 @@ public final class SqlRepositoryGenerator extends RepositoryGenerator {
 
             if (context.typeUtils().isType(Void.class, context.returnType())) {
                 spec.addStatement("return $L", context.returnInfo().async() ? "null" : "");
-            } else if (context.typeUtils().isType(context.entityType().asType(), context.returnType())) {
+            } else if (context.returnInfo().isSelf()) {
                 // todo support also creating an entity type from the given parameters
-                spec.addStatement("return $L", context.parametersInfo().firstName());
+                if (context.parametersInfo().isSelf()) {
+                    spec.addStatement("return $L", context.parametersInfo().firstName());
+                }
+                // the else has to be handled in the action. e.g.: TestEntity deleteByAAndB(int, String)
             } else if (context.typeUtils().isType(Integer.class, context.returnType())) {
                 spec.addStatement("return __updateCount");
             } else if (context.typeUtils().isType(Boolean.class, context.returnType())) {
                 spec.addStatement("return __updateCount > 0");
             } else {
                 throw new InvalidRepositoryException(
-                        "Return type can be either void or %s but got %s",
+                        "Return type can be either void, int, boolean or %s but got %s",
                         context.entityTypeName(), context.returnType());
             }
         });
@@ -198,9 +264,9 @@ public final class SqlRepositoryGenerator extends RepositoryGenerator {
             }
 
             spec.beginControlFlow(
-                    "try ($T __statement = __connection.prepareStatement($S))",
+                    "try ($T __statement = __connection.prepareStatement($L))",
                     PreparedStatement.class,
-                    builder.query());
+                    builder.dialectDepending() ? "__sql" : '"' + builder.query() + '"');
 
             CharSequence parameterName = "";
             if (context.parametersInfo().hasValueParameters()) {
@@ -283,9 +349,10 @@ public final class SqlRepositoryGenerator extends RepositoryGenerator {
     }
 
     private String createSetFor(QueryContext context, QueryBuilder builder) {
-        if (context.projection() != null && context.projection().columnName() != null) {
-            List<Factor> columns =
-                    List.of(new VariableByFactor(context.projection().columnName()));
+        if (!context.parametersInfo().remaining().isEmpty()) {
+            List<Factor> columns = context.parametersInfo().remaining().stream()
+                    .map(item -> new VariableByFactor(item.name(), item.name()))
+                    .collect(Collectors.toUnmodifiableList());
             return createParametersForFactors(columns, ',', builder, true);
         }
         var parameterName = context.parametersInfo().isSelfCollection()
@@ -352,11 +419,11 @@ public final class SqlRepositoryGenerator extends RepositoryGenerator {
         var columnName = section.columnName();
 
         var result = columnName != null ? columnName : "*";
-        if (distinct != null) {
+        if (distinct) {
             result = "distinct " + result;
         }
 
-        for (ProjectionKeyword projection : section.notDistinctProjectionKeywords()) {
+        for (ProjectionKeyword projection : section.nonSpecialProjectionKeywords()) {
             if (projection instanceof AvgProjectionKeyword) {
                 if (!context.typeUtils().isWholeNumberType(context.returnType())) {
                     result = "avg(%s)".formatted(result);
@@ -365,6 +432,10 @@ public final class SqlRepositoryGenerator extends RepositoryGenerator {
             }
             if (projection instanceof TopProjectionKeyword keyword) {
                 builder.addEndRaw("limit " + keyword.limit());
+                continue;
+            }
+            if (projection instanceof FirstProjectionKeyword) {
+                builder.addEndRaw("limit 1");
                 continue;
             }
             if (projection instanceof SkipProjectionKeyword keyword) {

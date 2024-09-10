@@ -79,10 +79,9 @@ public abstract class RepositoryGenerator {
             if (!TypeUtils.needsTypeCodec(column.typeName())) {
                 continue;
             }
-            var typeClassName = ClassName.bestGuess(column.typeName().toString());
-            var fieldType = ParameterizedTypeName.get(ClassName.get(TypeCodec.class), typeClassName);
+            var fieldType = ParameterizedTypeName.get(ClassName.get(TypeCodec.class), ClassName.get(column.asType()));
             typeSpec.addField(fieldType, "__" + column.name(), Modifier.PRIVATE, Modifier.FINAL);
-            constructor.addStatement("this.__$L = registry.requireCodecFor($T.class)", column.name(), typeClassName);
+            constructor.addStatement("this.__$L = registry.requireCodecFor($T.class)", column.name(), column.asType());
         }
 
         typeSpec.addMethod(constructor.build());

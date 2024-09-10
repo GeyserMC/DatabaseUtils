@@ -1,25 +1,6 @@
 /*
- * Copyright (c) 2024 GeyserMC <https://geysermc.org>
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- *
- * @author GeyserMC
+ * Copyright (c) 2024 GeyserMC
+ * Licensed under the MIT license
  * @link https://github.com/GeyserMC/DatabaseUtils
  */
 package org.geysermc.databaseutils.processor.query.type;
@@ -32,15 +13,17 @@ import javax.lang.model.type.TypeMirror;
 import org.geysermc.databaseutils.processor.util.TypeUtils;
 
 public final class ReturnTypeInfo {
+    private final TypeUtils typeUtils;
     private final boolean async;
     private final TypeMirror type;
-    private final boolean isVoid;
+    private final TypeMirror selfType;
     private final TypeMirror elementType;
 
-    public ReturnTypeInfo(boolean async, TypeMirror type, TypeUtils typeUtils) {
+    public ReturnTypeInfo(boolean async, TypeMirror type, TypeMirror selfType, TypeUtils typeUtils) {
+        this.typeUtils = typeUtils;
         this.async = async;
         this.type = type;
-        this.isVoid = isVoid(typeUtils);
+        this.selfType = selfType;
         this.elementType = elementType(typeUtils);
     }
 
@@ -52,19 +35,31 @@ public final class ReturnTypeInfo {
         return type;
     }
 
-    public boolean isVoid() {
-        return isVoid;
-    }
-
     public TypeMirror elementType() {
         return elementType;
+    }
+
+    public TypeMirror elementTypeOrType() {
+        return elementType != null ? elementType : type;
+    }
+
+    public boolean isSelf() {
+        return typeUtils.isType(selfType, type);
     }
 
     public boolean isCollection() {
         return elementType() != null;
     }
 
-    private boolean isVoid(TypeUtils typeUtils) {
+    public boolean isSelfCollection() {
+        return isCollection() && typeUtils.isType(selfType, elementType);
+    }
+
+    public boolean isAnySelf() {
+        return isSelf() || isSelfCollection();
+    }
+
+    public boolean isVoid() {
         if (type.getKind() == TypeKind.VOID) {
             return true;
         }

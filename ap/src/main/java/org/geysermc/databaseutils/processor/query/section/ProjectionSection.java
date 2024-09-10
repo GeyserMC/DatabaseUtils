@@ -1,25 +1,6 @@
 /*
- * Copyright (c) 2024 GeyserMC <https://geysermc.org>
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- *
- * @author GeyserMC
+ * Copyright (c) 2024 GeyserMC
+ * Licensed under the MIT license
  * @link https://github.com/GeyserMC/DatabaseUtils
  */
 package org.geysermc.databaseutils.processor.query.section;
@@ -30,6 +11,7 @@ import org.geysermc.databaseutils.processor.query.section.factor.Factor;
 import org.geysermc.databaseutils.processor.query.section.factor.ProjectionFactor;
 import org.geysermc.databaseutils.processor.query.section.projection.ProjectionKeyword;
 import org.geysermc.databaseutils.processor.query.section.projection.keyword.DistinctProjectionKeyword;
+import org.geysermc.databaseutils.processor.query.section.projection.keyword.FirstProjectionKeyword;
 
 public record ProjectionSection(List<@NonNull ProjectionFactor> projections) {
     public ProjectionSection(@NonNull List<@NonNull ProjectionFactor> projections) {
@@ -45,31 +27,48 @@ public record ProjectionSection(List<@NonNull ProjectionFactor> projections) {
     }
 
     public String columnName() {
-        return projections.stream()
-                .<String>mapMulti((factor, results) -> {
-                    if (factor.keyword() == null) {
-                        results.accept(factor.columnName());
-                    }
-                })
-                .findFirst()
-                .orElse(null);
+        for (var factor : projections) {
+            if (factor.keyword() == null) {
+                return factor.columnName();
+            }
+        }
+        return null;
     }
 
-    public DistinctProjectionKeyword distinct() {
-        return projections.stream()
-                .<DistinctProjectionKeyword>mapMulti((factor, results) -> {
-                    if (factor.keyword() instanceof DistinctProjectionKeyword keyword) {
-                        results.accept(keyword);
-                    }
-                })
-                .findFirst()
-                .orElse(null);
+    public boolean distinct() {
+        for (var factor : projections) {
+            if (factor.keyword() instanceof DistinctProjectionKeyword) {
+                return true;
+            }
+        }
+        return false;
     }
 
-    public @NonNull List<@NonNull ProjectionKeyword> notDistinctProjectionKeywords() {
+    public boolean first() {
+        for (var factor : projections) {
+            if (factor.keyword() instanceof FirstProjectionKeyword) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Returns all the projection keywords that are not:
+     * <ul>
+     *  <li>{@link DistinctProjectionKeyword}</li>
+     *  <li>ProjectionFactor with a non-null columnName.</li>
+     * </ul>
+     * Those specific keywords can be gathered by their respective methods:
+     * <ul>
+     *   <li>{@link #distinct()}</li>
+     *   <li>{@link #columnName()}</li>
+     * </ul>
+     */
+    public @NonNull List<@NonNull ProjectionKeyword> nonSpecialProjectionKeywords() {
         return projections.stream()
                 .<ProjectionKeyword>mapMulti((factor, results) -> {
-                    if (factor.columnName() != null && !(factor.keyword() instanceof DistinctProjectionKeyword)) {
+                    if (factor.columnName() == null && !(factor.keyword() instanceof DistinctProjectionKeyword)) {
                         results.accept(factor.keyword());
                     }
                 })

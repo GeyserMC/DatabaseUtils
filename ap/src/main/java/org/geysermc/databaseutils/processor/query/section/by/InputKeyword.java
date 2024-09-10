@@ -15,7 +15,7 @@ import org.geysermc.databaseutils.processor.util.CollectionUtils;
 import org.geysermc.databaseutils.processor.util.TypeUtils;
 
 /**
- * A keyword that requires multiple inputs from the user.
+ * A keyword that requires (one or) multiple inputs from the user.
  */
 public abstract class InputKeyword {
     private final List<CharSequence> parameterNames = new ArrayList<>();

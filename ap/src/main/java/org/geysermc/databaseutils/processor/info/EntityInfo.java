@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 import javax.lang.model.element.TypeElement;
+import javax.lang.model.type.TypeMirror;
 import org.checkerframework.checker.nullness.qual.NonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.geysermc.databaseutils.processor.query.section.by.keyword.EqualsKeyword;
@@ -26,12 +27,16 @@ public record EntityInfo(
         return null;
     }
 
+    public TypeMirror asType() {
+        return type.asType();
+    }
+
     public CharSequence typeName() {
         return type.getQualifiedName();
     }
 
     public List<ColumnInfo> keyColumns() {
-        return keys.stream().map(this::columnFor).collect(Collectors.toList());
+        return keys.stream().map(this::columnFor).collect(Collectors.toCollection(ArrayList::new));
     }
 
     public List<ColumnInfo> notKeyColumns() {

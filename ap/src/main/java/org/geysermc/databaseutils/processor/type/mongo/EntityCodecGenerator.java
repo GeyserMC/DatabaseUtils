@@ -65,7 +65,7 @@ public final class EntityCodecGenerator {
         var method = MethodSpec.methodBuilder("decode")
                 .addAnnotation(Override.class)
                 .addModifiers(Modifier.PUBLIC)
-                .returns(TypeName.get(info.type().asType()))
+                .returns(TypeName.get(info.asType()))
                 .addParameter(ClassName.get(BsonReader.class), "reader")
                 .addParameter(ClassName.get(DecoderContext.class), "context");
 

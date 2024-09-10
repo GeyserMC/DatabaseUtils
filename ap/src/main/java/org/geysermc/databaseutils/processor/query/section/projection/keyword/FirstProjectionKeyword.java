@@ -8,10 +8,10 @@ package org.geysermc.databaseutils.processor.query.section.projection.keyword;
 import org.geysermc.databaseutils.processor.query.section.projection.ProjectionKeyword;
 import org.geysermc.databaseutils.processor.query.section.projection.ProjectionKeywordCategory;
 
-public class AvgProjectionKeyword extends ProjectionKeyword {
-    public static final AvgProjectionKeyword INSTANCE = new AvgProjectionKeyword();
+public class FirstProjectionKeyword extends ProjectionKeyword {
+    public static final FirstProjectionKeyword INSTANCE = new FirstProjectionKeyword();
 
-    private AvgProjectionKeyword() {
-        super("Avg", ProjectionKeywordCategory.SUMMARY);
+    private FirstProjectionKeyword() {
+        super("First", ProjectionKeywordCategory.LIMIT);
     }
 }

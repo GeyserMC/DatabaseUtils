@@ -19,6 +19,7 @@ public class QueryBuilder {
     private final StringBuilder endQuery = new StringBuilder();
     private final List<QueryBuilderColumn> columns = new ArrayList<>();
     private int parameterIndex = 0;
+    private boolean dialectDepending = false;
 
     public QueryBuilder(QueryContext queryContext) {
         this.queryContext = queryContext;
@@ -33,6 +34,15 @@ public class QueryBuilder {
 
     public List<QueryBuilderColumn> columns() {
         return columns;
+    }
+
+    public boolean dialectDepending() {
+        return dialectDepending;
+    }
+
+    public QueryBuilder dialectDepending(boolean dialectDepending) {
+        this.dialectDepending = dialectDepending;
+        return this;
     }
 
     public QueryBuilder add(String queryPart, BiFunction<QueryContext, QueryBuilder, String> function) {
@@ -60,6 +70,16 @@ public class QueryBuilder {
             query.append(' ');
         }
         query.append(queryPart.formatted(format.toArray()));
+        return this;
+    }
+
+    public QueryBuilder addRawBefore(String before, String queryPart, String... format) {
+        var index = query.indexOf(before);
+        if (index == -1) {
+            throw new IllegalArgumentException(String.format(
+                    "Cannot add '%s' before '%s' as before is not present in '%s'", queryPart, before, query));
+        }
+        query.insert(index, queryPart.formatted((Object[]) format) + " ");
         return this;
     }
 
@@ -97,6 +117,20 @@ public class QueryBuilder {
     public QueryBuilder addAll(List<ColumnInfo> columns) {
         columns.forEach(this::addColumn);
         return this;
+    }
+
+    public QueryBuilder copy() {
+        var builder = new QueryBuilder(queryContext);
+        builder.query.append(query);
+        builder.endQuery.append(endQuery);
+        builder.columns.addAll(columns);
+        builder.parameterIndex = parameterIndex;
+        return builder;
+    }
+
+    @Override
+    public String toString() {
+        return query();
     }
 
     public record QueryBuilderColumn(ColumnInfo info, CharSequence parameterName) {}

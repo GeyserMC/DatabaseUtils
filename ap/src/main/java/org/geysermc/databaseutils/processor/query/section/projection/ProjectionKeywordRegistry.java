@@ -12,14 +12,21 @@ import java.util.regex.Pattern;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.geysermc.databaseutils.processor.query.section.projection.keyword.AvgProjectionKeyword;
 import org.geysermc.databaseutils.processor.query.section.projection.keyword.DistinctProjectionKeyword;
+import org.geysermc.databaseutils.processor.query.section.projection.keyword.FirstProjectionKeyword;
 import org.geysermc.databaseutils.processor.query.section.projection.keyword.SkipProjectionKeyword;
 import org.geysermc.databaseutils.processor.query.section.projection.keyword.TopProjectionKeyword;
 
 public class ProjectionKeywordRegistry {
-    private static final Map<Pattern, Supplier<ProjectionKeyword>> REGISTRY = new HashMap<>();
+    private static final Map<String, ProjectionKeyword> STATIC_REGISTRY = new HashMap<>();
+    private static final Map<Pattern, Supplier<ProjectionKeyword>> DYNAMIC_REGISTRY = new HashMap<>();
 
     public static @Nullable ProjectionKeyword findByName(String keyword) {
-        for (var entry : REGISTRY.entrySet()) {
+        var staticInstance = STATIC_REGISTRY.get(keyword);
+        if (staticInstance != null) {
+            return staticInstance;
+        }
+
+        for (var entry : DYNAMIC_REGISTRY.entrySet()) {
             if (entry.getKey().matcher(keyword).matches()) {
                 var instance = entry.getValue().get();
                 instance.setValue(keyword);
@@ -31,13 +38,18 @@ public class ProjectionKeywordRegistry {
 
     private static void register(Supplier<ProjectionKeyword> keywordSupplier) {
         var instance = keywordSupplier.get();
-        REGISTRY.put(Pattern.compile(instance.name()), keywordSupplier);
+        DYNAMIC_REGISTRY.put(Pattern.compile(instance.name()), keywordSupplier);
+    }
+
+    private static void register(ProjectionKeyword keyword) {
+        STATIC_REGISTRY.put(keyword.name(), keyword);
     }
 
     static {
-        register(DistinctProjectionKeyword::new);
-        register(AvgProjectionKeyword::new);
+        register(DistinctProjectionKeyword.INSTANCE);
+        register(AvgProjectionKeyword.INSTANCE);
         register(TopProjectionKeyword::new);
+        register(FirstProjectionKeyword.INSTANCE);
         register(SkipProjectionKeyword::new);
     }
 }
