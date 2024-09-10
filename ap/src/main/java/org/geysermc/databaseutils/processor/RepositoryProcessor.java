@@ -28,6 +28,7 @@ import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeMirror;
 import javax.tools.Diagnostic;
 import org.geysermc.databaseutils.IRepository;
+import org.geysermc.databaseutils.meta.Query;
 import org.geysermc.databaseutils.meta.Repository;
 import org.geysermc.databaseutils.processor.action.ActionRegistry;
 import org.geysermc.databaseutils.processor.query.KeywordsReader;
@@ -60,7 +61,7 @@ public final class RepositoryProcessor extends AbstractProcessor {
     @Override
     public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment env) {
         if (env.processingOver()) {
-            return false;
+            return true;
         }
 
         List<List<RepositoryGenerator>> results = new ArrayList<>();
@@ -89,7 +90,7 @@ public final class RepositoryProcessor extends AbstractProcessor {
         }
 
         if (errorOccurred) {
-            return false;
+            return true;
         }
 
         boolean hasItems = false;
@@ -97,7 +98,7 @@ public final class RepositoryProcessor extends AbstractProcessor {
             hasItems |= !result.isEmpty();
         }
         if (!hasItems) {
-            return false;
+            return true;
         }
 
         List<GeneratedType> generatedTypes = new ArrayList<>();
@@ -127,7 +128,7 @@ public final class RepositoryProcessor extends AbstractProcessor {
 
         writeGeneratedTypes(generatedTypes);
 
-        return false;
+        return true;
     }
 
     record GeneratedType(String packageName, TypeSpec database) {}
@@ -175,12 +176,18 @@ public final class RepositoryProcessor extends AbstractProcessor {
                 continue;
             }
 
-            var name = element.getSimpleName().toString();
+            var methodName = element.getSimpleName().toString();
 
-            var result = new KeywordsReader(name, entity).read();
+            var query = methodName;
+            var queryAnnotation = enclosedElement.getAnnotation(Query.class);
+            if (queryAnnotation != null) {
+                query = queryAnnotation.value();
+            }
+
+            var result = new KeywordsReader(query, entity).read();
             var action = ActionRegistry.actionMatching(result);
             if (action == null) {
-                throw new InvalidRepositoryException("No available actions for %s", name);
+                throw new InvalidRepositoryException("No available actions for %s", methodName);
             }
 
             var queryContext = new QueryContextCreator(action, result, element, entity, typeUtils).create();

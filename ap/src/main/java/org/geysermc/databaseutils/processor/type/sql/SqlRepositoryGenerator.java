@@ -27,6 +27,8 @@ import org.geysermc.databaseutils.processor.info.ColumnInfo;
 import org.geysermc.databaseutils.processor.query.QueryContext;
 import org.geysermc.databaseutils.processor.query.section.by.keyword.EqualsKeyword;
 import org.geysermc.databaseutils.processor.query.section.by.keyword.LessThanKeyword;
+import org.geysermc.databaseutils.processor.query.section.by.keyword.NotNullKeyword;
+import org.geysermc.databaseutils.processor.query.section.by.keyword.NullKeyword;
 import org.geysermc.databaseutils.processor.query.section.factor.AndFactor;
 import org.geysermc.databaseutils.processor.query.section.factor.Factor;
 import org.geysermc.databaseutils.processor.query.section.factor.OrFactor;
@@ -399,6 +401,10 @@ public final class SqlRepositoryGenerator extends RepositoryGenerator {
             builder.append(variable.columnName());
             if (keyword instanceof EqualsKeyword) {
                 builder.append("=?");
+            } else if (keyword instanceof NullKeyword) {
+                builder.append(" is null");
+            } else if (keyword instanceof NotNullKeyword) {
+                builder.append(" is not null");
             } else if (keyword instanceof LessThanKeyword) {
                 builder.append("<?");
             } else {

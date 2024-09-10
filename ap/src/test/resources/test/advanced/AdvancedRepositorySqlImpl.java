@@ -200,4 +200,26 @@ public final class AdvancedRepositorySqlImpl implements AdvancedRepository {
             throw new CompletionException("Unexpected error occurred", __exception);
         }
     }
+
+    @Override
+    public TestEntity findWithAlternativeName(int a, String b) {
+        try (Connection __connection = this.dataSource.getConnection()) {
+            try (PreparedStatement __statement = __connection.prepareStatement("select * from hello where a=? and b=? and c is not null")) {
+                __statement.setInt(1, a);
+                __statement.setString(2, b);
+                try (ResultSet __result = __statement.executeQuery()) {
+                    if (!__result.next()) {
+                        return null;
+                    }
+                    Integer _a = __result.getInt("a");
+                    String _b = __result.getString("b");
+                    String _c = __result.getString("c");
+                    UUID _d = this.__d.decode(__result.getBytes("d"));
+                    return new TestEntity(_a, _b, _c, _d);
+                }
+            }
+        } catch (SQLException __exception) {
+            throw new CompletionException("Unexpected error occurred", __exception);
+        }
+    }
 }

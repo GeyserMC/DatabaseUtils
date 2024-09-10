@@ -99,4 +99,9 @@ public final class AdvancedRepositoryMongoImpl implements AdvancedRepository {
             __session.close();
         }
     }
+
+    @Override
+    public TestEntity findWithAlternativeName(int a, String b) {
+        return this.collection.find(Filters.and(Filters.eq("a", a), Filters.and(Filters.eq("b", b), Filters.not(Filters.eq("c", null))))).first();
+    }
 }

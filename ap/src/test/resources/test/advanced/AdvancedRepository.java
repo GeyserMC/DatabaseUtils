@@ -3,6 +3,7 @@ package test.advanced;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.geysermc.databaseutils.IRepository;
+import org.geysermc.databaseutils.meta.Query;
 import org.geysermc.databaseutils.meta.Repository;
 
 @Repository
@@ -24,4 +25,7 @@ public interface AdvancedRepository extends IRepository<TestEntity> {
     List<TestEntity> deleteByBAndC(String b, String c);
 
 //    int deleteAByBAndC(String b, String c); todo support this
+
+    @Query("findByAAndBAndCIsNotNull")
+    TestEntity findWithAlternativeName(int a, String b);
 }

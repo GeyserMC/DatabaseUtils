@@ -29,6 +29,8 @@ import org.geysermc.databaseutils.processor.info.ColumnInfo;
 import org.geysermc.databaseutils.processor.query.QueryContext;
 import org.geysermc.databaseutils.processor.query.section.by.keyword.EqualsKeyword;
 import org.geysermc.databaseutils.processor.query.section.by.keyword.LessThanKeyword;
+import org.geysermc.databaseutils.processor.query.section.by.keyword.NotNullKeyword;
+import org.geysermc.databaseutils.processor.query.section.by.keyword.NullKeyword;
 import org.geysermc.databaseutils.processor.query.section.factor.AndFactor;
 import org.geysermc.databaseutils.processor.query.section.factor.Factor;
 import org.geysermc.databaseutils.processor.query.section.factor.OrFactor;
@@ -309,6 +311,12 @@ public class MongoRepositoryGenerator extends RepositoryGenerator {
                         Filters.class,
                         variable.columnName(),
                         equals.parameterNames().get(0));
+            } else if (keyword instanceof NullKeyword) {
+                // Filters.eq null is true when the value is null or missing, which is desired I think
+                builder.add("$T.eq($S, null)", Filters.class, variable.columnName());
+            } else if (keyword instanceof NotNullKeyword) {
+                // Same as NullKeyword but then 'not'. So that they can be either missing or null
+                builder.add("$T.not($T.eq($S, null))", Filters.class, Filters.class, variable.columnName());
             } else if (keyword instanceof LessThanKeyword lessThan) {
                 builder.add(
                         "$T.lt($S, $L)",
