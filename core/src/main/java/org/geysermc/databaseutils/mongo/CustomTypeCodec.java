@@ -7,6 +7,7 @@ package org.geysermc.databaseutils.mongo;
 
 import org.bson.BsonBinary;
 import org.bson.BsonReader;
+import org.bson.BsonType;
 import org.bson.BsonWriter;
 import org.bson.codecs.Codec;
 import org.bson.codecs.DecoderContext;
@@ -22,12 +23,21 @@ public final class CustomTypeCodec implements Codec<Object> {
 
     @Override
     public Object decode(BsonReader bsonReader, DecoderContext decoderContext) {
+        if (bsonReader.getCurrentBsonType() == BsonType.NULL) {
+            bsonReader.readNull();
+            return codec.decode(null);
+        }
         return codec.decode(bsonReader.readBinaryData().getData());
     }
 
     @Override
     public void encode(BsonWriter bsonWriter, Object value, EncoderContext encoderContext) {
-        bsonWriter.writeBinaryData(new BsonBinary(codec.encode(value)));
+        byte[] encoded = codec.encode(value);
+        if (encoded == null) {
+            bsonWriter.writeNull();
+            return;
+        }
+        bsonWriter.writeBinaryData(new BsonBinary(encoded));
     }
 
     @Override

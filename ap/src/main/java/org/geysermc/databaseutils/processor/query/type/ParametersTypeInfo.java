@@ -72,7 +72,7 @@ public class ParametersTypeInfo {
         return name(0);
     }
 
-    public boolean hasValueParameters() {
+    public boolean hasParameters() {
         return !element.getParameters().isEmpty();
     }
 

@@ -95,7 +95,7 @@ public final class BasicRepositorySqlImpl implements BasicRepository {
     }
 
     @Override
-    public CompletableFuture<Boolean> existsByB(String b) {
+    public CompletableFuture<Boolean> existsByBEquals(String b) {
         return CompletableFuture.supplyAsync(() -> {
             try (Connection __connection = this.dataSource.getConnection()) {
                 try (PreparedStatement __statement = __connection.prepareStatement("select 1 from hello where b=?")) {

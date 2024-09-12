@@ -61,15 +61,15 @@ public class QueryBuilder {
         return this;
     }
 
-    public QueryBuilder addRaw(String queryPart, String... format) {
-        return addRaw(queryPart, List.of(format));
+    public QueryBuilder addRaw(String queryPart, List<String> format) {
+        return addRaw(queryPart, format.toArray(String[]::new));
     }
 
-    public QueryBuilder addRaw(String queryPart, List<String> format) {
+    public QueryBuilder addRaw(String queryPart, String... format) {
         if (!query.isEmpty()) {
             query.append(' ');
         }
-        query.append(queryPart.formatted(format.toArray()));
+        query.append(queryPart.formatted((Object[]) format));
         return this;
     }
 
@@ -83,11 +83,31 @@ public class QueryBuilder {
         return this;
     }
 
+    /**
+     * Optionally add before, if before is not found then {@link #addRaw(String, String...)} is called
+     */
+    public QueryBuilder addRawOptionalBefore(String before, String queryPart, String... format) {
+        int index = query.indexOf(before);
+        if (index == -1) {
+            return addRaw(queryPart, format);
+        }
+        query.insert(index, queryPart.formatted((Object[]) format) + (query.isEmpty() ? "" : " "));
+        return this;
+    }
+
     public QueryBuilder addEndRaw(String queryPart, String... format) {
         if (!endQuery.isEmpty()) {
             endQuery.append(' ');
         }
         endQuery.append(queryPart.formatted((Object[]) format));
+        return this;
+    }
+
+    public QueryBuilder addEndStartRaw(String queryPart, String... format) {
+        if (!endQuery.isEmpty()) {
+            endQuery.insert(0, ' ');
+        }
+        endQuery.insert(0, queryPart.formatted((Object[]) format));
         return this;
     }
 

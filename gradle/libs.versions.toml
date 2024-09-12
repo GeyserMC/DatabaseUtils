@@ -1,26 +1,51 @@
 [versions]
 checker-qual = "3.19.0"
 hikari = "5.1.0"
-h2 = "2.2.224"
-mongo = "4.4.1"
+
 # ap
 javapoet = "1.10.0"
 auto-service = "1.1.1"
 compile-testing = "0.21.0"
-junit = "5.10.0"
 
+# core tests
+h2 = "2.2.224"
+mariadb = "3.4.1"
+mongo = "4.4.1"
+mssql = "12.8.1.jre11"
+mysql = "9.0.0"
+oracledb = "23.4.0.24.05"
+postgresql = "42.7.4"
+sqlite = "3.46.1.0"
+testcontainers = "1.20.1"
+
+junit = "5.10.0"
 indra = "3.1.3"
 
 [libraries]
 checker-qual = { module = "org.checkerframework:checker-qual", version.ref = "checker-qual" }
 
 hikari-cp = { module = "com.zaxxer:HikariCP", version.ref = "hikari" }
-h2 = { module = "com.h2database:h2", version.ref = "h2" }
-mongo-driver = { module = "org.mongodb:mongodb-driver-sync", version.ref = "mongo" }
 
 auto-service = { module = "com.google.auto.service:auto-service", version.ref = "auto-service" }
 javapoet = { module = "com.squareup:javapoet", version.ref = "javapoet" }
 compile-testing = { module = "com.google.testing.compile:compile-testing", version.ref = "compile-testing" }
+
+h2 = { module = "com.h2database:h2", version.ref = "h2" }
+mariadb = { module = "org.mariadb.jdbc:mariadb-java-client", version.ref = "mariadb" }
+mongo-driver = { module = "org.mongodb:mongodb-driver-sync", version.ref = "mongo" }
+mssql-jdbc = { module = "com.microsoft.sqlserver:mssql-jdbc", version.ref = "mssql" }
+mysql = { module = "com.mysql:mysql-connector-j", version.ref = "mysql" }
+oracle = { module = "com.oracle.database.jdbc:ojdbc11-production", version.ref = "oracledb" }
+postgresql = { module = "org.postgresql:postgresql", version.ref = "postgresql" }
+sqlite = { module = "org.xerial:sqlite-jdbc", version.ref = "sqlite" }
+testcontainers = { module = "org.testcontainers:testcontainers", version.ref = "testcontainers" }
+testcontainers-junit-jupiter = { module = "org.testcontainers:junit-jupiter", version.ref = "testcontainers" }
+testcontainers-mariadb = { module = "org.testcontainers:mariadb", version.ref = "testcontainers" }
+testcontainers-mongodb = { module = "org.testcontainers:mongodb", version.ref = "testcontainers" }
+testcontainers-mssqlserver = { module = "org.testcontainers:mssqlserver", version.ref = "testcontainers" }
+testcontainers-mysql = { module = "org.testcontainers:mysql", version.ref = "testcontainers" }
+testcontainers-oracle = { module = "org.testcontainers:oracle-free", version.ref = "testcontainers" }
+testcontainers-postgresql = { module = "org.testcontainers:postgresql", version.ref = "testcontainers" }
 
 junit-api = { module = "org.junit.jupiter:junit-jupiter-api", version.ref = "junit" }
 junit-engine = { module = "org.junit.jupiter:junit-jupiter-engine", version.ref = "junit" }

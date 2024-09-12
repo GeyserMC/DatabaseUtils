@@ -36,6 +36,7 @@ import org.geysermc.databaseutils.processor.query.section.factor.Factor;
 import org.geysermc.databaseutils.processor.query.section.factor.OrFactor;
 import org.geysermc.databaseutils.processor.query.section.factor.VariableByFactor;
 import org.geysermc.databaseutils.processor.query.section.factor.VariableOrderByFactor;
+import org.geysermc.databaseutils.processor.query.section.projection.keyword.FirstProjectionKeyword;
 import org.geysermc.databaseutils.processor.query.section.projection.keyword.SkipProjectionKeyword;
 import org.geysermc.databaseutils.processor.query.section.projection.keyword.TopProjectionKeyword;
 import org.geysermc.databaseutils.processor.type.RepositoryGenerator;
@@ -171,6 +172,8 @@ public class MongoRepositoryGenerator extends RepositoryGenerator {
 
                 if (needsUpdatedCount) {
                     spec.addStatement("__count = this.collection.deleteOne($L).getDeletedCount()", filter);
+                } else if (context.returnInfo().isSelf()) {
+                    spec.addStatement("return this.collection.findOneAndDelete($L)", filter);
                 } else {
                     spec.addStatement("this.collection.deleteOne($L)", filter);
                 }
@@ -195,7 +198,7 @@ public class MongoRepositoryGenerator extends RepositoryGenerator {
                     spec.addStatement("this.collection.bulkWrite(__bulkOperations)");
                 }
             } else {
-                if (needsUpdatedCount) {
+                if (!context.hasProjection() && needsUpdatedCount) {
                     spec.addStatement(
                             "__count = (int) this.collection.deleteMany($L).getDeletedCount()",
                             createFilter(context.bySectionFactors()));
@@ -204,7 +207,7 @@ public class MongoRepositoryGenerator extends RepositoryGenerator {
                     if (context.returnInfo().isSelf()) {
                         spec.addStatement("return this.collection.findOneAndDelete($L)", filter);
                         return;
-                    } else if (context.returnInfo().isSelfCollection()) {
+                    } else if (context.returnInfo().isSelfCollection() || needsUpdatedCount) {
                         spec.addStatement("var __session = this.mongoClient.startSession()");
                         spec.beginControlFlow("try");
                         spec.addStatement("__session.startTransaction()");
@@ -213,7 +216,7 @@ public class MongoRepositoryGenerator extends RepositoryGenerator {
                                 "var __find = this.collection.find(__session, $L)$L$L",
                                 filter,
                                 createSort(context),
-                                createProjection(context));
+                                createProjection(context, true));
 
                         spec.addStatement("var __toDelete = new $T<$T>()", ArrayList.class, Bson.class);
                         spec.beginControlFlow("for (var __found : __find)");
@@ -238,7 +241,17 @@ public class MongoRepositoryGenerator extends RepositoryGenerator {
                         spec.endControlFlow();
 
                         spec.addStatement("__session.commitTransaction()");
-                        spec.addStatement("return __find");
+
+                        if (needsUpdatedCount) {
+                            if (context.typeUtils().isType(Boolean.class, context.returnType())) {
+                                spec.addStatement("return __deletedCount > 0");
+                            } else {
+                                spec.addStatement("return (int) __deletedCount"); // todo make more flexible
+                            }
+                        } else {
+                            spec.addStatement("return __find");
+                        }
+
                         spec.nextControlFlow("catch ($T __exception)", Exception.class);
                         spec.addStatement("__session.abortTransaction()");
                         spec.addStatement("throw __exception");
@@ -346,6 +359,10 @@ public class MongoRepositoryGenerator extends RepositoryGenerator {
     }
 
     private CodeBlock createProjection(QueryContext context) {
+        return createProjection(context, false);
+    }
+
+    private CodeBlock createProjection(QueryContext context, boolean needsCollection) {
         var builder = CodeBlock.builder();
 
         if (context.projection() != null) {
@@ -356,6 +373,11 @@ public class MongoRepositoryGenerator extends RepositoryGenerator {
                 }
                 if (projection instanceof SkipProjectionKeyword keyword) {
                     builder.add(".skip($L)", keyword.offset());
+                    continue;
+                }
+                // todo are there other situations I'm missing?
+                if (projection instanceof FirstProjectionKeyword && needsCollection) {
+                    builder.add(".limit(1)");
                     continue;
                 }
                 throw new InvalidRepositoryException("Unsupported projection %s", projection.name());
@@ -369,6 +391,8 @@ public class MongoRepositoryGenerator extends RepositoryGenerator {
 
         if (context.returnInfo().isCollection()) {
             builder.add(".into(new $T<>())", context.typeUtils().collectionImplementationFor(context.returnType()));
+        } else if (needsCollection) {
+            builder.add(".into(new $T<>())", ArrayList.class);
         } else {
             builder.add(".first()");
         }

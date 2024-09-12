@@ -32,3 +32,6 @@
 !database/sql
 !database/sql/src
 !database/sql/src/**
+
+# Ignore the test databases, which uh, should ideally be deleted after tests
+core/database*

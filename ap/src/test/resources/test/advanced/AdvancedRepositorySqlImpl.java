@@ -139,8 +139,10 @@ public final class AdvancedRepositorySqlImpl implements AdvancedRepository {
     @Override
     public TestEntity deleteByAAndB(int a, String b) {
         String __sql;
-        if (this.dialect == SqlDialect.POSTGRESQL || this.dialect == SqlDialect.ORACLE_DATABASE || this.dialect == SqlDialect.SQLITE || this.dialect == SqlDialect.MARIADB) {
+        if (this.dialect == SqlDialect.POSTGRESQL || this.dialect == SqlDialect.SQLITE || this.dialect == SqlDialect.MARIADB) {
             __sql = "delete from hello where a=? and b=? returning *";
+        } else if (this.dialect == SqlDialect.ORACLE_DATABASE) {
+            throw new IllegalStateException("This behaviour is not yet implemented!");
         } else if (this.dialect == SqlDialect.SQL_SERVER) {
             __sql = "delete from hello output deleted.* where a=? and b=?";
         } else if (this.dialect == SqlDialect.H2 || this.dialect == SqlDialect.MYSQL) {
@@ -171,8 +173,10 @@ public final class AdvancedRepositorySqlImpl implements AdvancedRepository {
     @Override
     public List<TestEntity> deleteByBAndC(String b, String c) {
         String __sql;
-        if (this.dialect == SqlDialect.POSTGRESQL || this.dialect == SqlDialect.ORACLE_DATABASE || this.dialect == SqlDialect.SQLITE || this.dialect == SqlDialect.MARIADB) {
+        if (this.dialect == SqlDialect.POSTGRESQL || this.dialect == SqlDialect.SQLITE || this.dialect == SqlDialect.MARIADB) {
             __sql = "delete from hello where b=? and c=? returning *";
+        } else if (this.dialect == SqlDialect.ORACLE_DATABASE) {
+            throw new IllegalStateException("This behaviour is not yet implemented!");
         } else if (this.dialect == SqlDialect.SQL_SERVER) {
             __sql = "delete from hello output deleted.* where b=? and c=?";
         } else if (this.dialect == SqlDialect.H2 || this.dialect == SqlDialect.MYSQL) {

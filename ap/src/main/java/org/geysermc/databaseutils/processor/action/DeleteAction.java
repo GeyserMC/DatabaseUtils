@@ -7,12 +7,13 @@ package org.geysermc.databaseutils.processor.action;
 
 import com.squareup.javapoet.MethodSpec;
 import org.geysermc.databaseutils.processor.query.QueryContext;
+import org.geysermc.databaseutils.processor.query.section.projection.ProjectionKeywordCategory;
 import org.geysermc.databaseutils.processor.type.RepositoryGenerator;
 import org.geysermc.databaseutils.processor.util.InvalidRepositoryException;
 
 final class DeleteAction extends Action {
     DeleteAction() {
-        super("delete", true, true, true, false);
+        super("delete", true, true, true, false, ProjectionKeywordCategory.LIMIT);
     }
 
     @Override

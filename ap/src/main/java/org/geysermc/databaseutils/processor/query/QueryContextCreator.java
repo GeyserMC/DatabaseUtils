@@ -86,7 +86,7 @@ public class QueryContextCreator {
         }
 
         if (readResult.projection() != null) {
-            validateColumnNames(readResult.projection().projections(), SectionType.PROJECTION, null);
+            validateProjectionColumnName(readResult.projection().projections(), SectionType.PROJECTION);
 
             var handledCategories = new ArrayList<ProjectionKeywordCategory>();
             for (@NonNull ProjectionFactor projection : readResult.projection().projections()) {
@@ -187,6 +187,19 @@ public class QueryContextCreator {
         return queryContext;
     }
 
+    private void validateProjectionColumnName(List<ProjectionFactor> factors, SectionType type) {
+        for (ProjectionFactor factor : factors) {
+            CharSequence columnName = factor.columnName();
+            if (columnName != null) {
+                var column = info.columnFor(columnName);
+                if (column == null) {
+                    throw new InvalidRepositoryException(
+                            "Could not find column %s for entity %s", columnName, info.name());
+                }
+            }
+        }
+    }
+
     private <T extends VariableFactor> void validateColumnNames(
             List<? extends Factor> factors, SectionType type, BiConsumer<T, ColumnInfo> customValidation) {
         var variableLast = true;
@@ -194,10 +207,6 @@ public class QueryContextCreator {
             CharSequence columnName = null;
             if (factor instanceof VariableFactor variable) {
                 columnName = variable.columnName();
-            } else if (factor instanceof ProjectionFactor projection) {
-                if (projection.columnName() != null) {
-                    columnName = projection.columnName();
-                }
             }
 
             if (columnName != null) {
@@ -208,7 +217,7 @@ public class QueryContextCreator {
                 }
                 variableLast = true;
                 if (customValidation != null) {
-                    //noinspection DataFlowIssue,unchecked
+                    //noinspection unchecked
                     customValidation.accept((T) factor, column);
                 }
             } else {

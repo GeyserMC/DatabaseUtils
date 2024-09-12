@@ -46,11 +46,20 @@ However not everything is the same across dialects.
 ### Missing functionality for specific dialects
 
 #### TestEntity deleteByAAndB(String, String)
-This behaviour doesn't work on MySQL (not MariaDB) and H2.
-This is because every dialect but MySQL and H2 support 'REPLACING' or a variant of it.
+This currently doesn't work on MySQL (not MariaDB), H2 and Oracle Database.
+For MySQL and H2 this is caused by the lack of support for 'REPLACING' or a variant of it.
 For those two dialect we have to fetch a record first and then delete it (inside a transaction).
+For Oracle Database the reason is that unlike the other 'REPLACING' implementations this dialect
+does not accept a wildcard.
 The current codebase is not flexible enough to do these wildly different behaviours per dialect, 
-but will be supported in the future. 
+but will be supported in the future.
+
+#### any deleteFirst() and any deleteTop*()
+Anything with a limit projection in delete currently doesn't work for Oracle Database, PostgreSQL and SQLite.
+For SQLite this is a flag that can be enabled during compile, but it's disabled by default.
+For Oracle and Postgres delete with a limit doesn't exist.
+The current codebase is not flexible enough to do these wildly different behaviours per dialect,
+but will be supported in the future.
 
 ### Different data types across dialects
 Not every data type has the same name / is available on each dialect.

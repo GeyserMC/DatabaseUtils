@@ -36,7 +36,9 @@ public final class SqlDatabase extends Database {
         hikariConfig.setUsername(config.username());
         hikariConfig.setPassword(config.password());
         hikariConfig.setPoolName(context.poolName());
-        hikariConfig.setMaximumPoolSize(config.connectionPoolSize());
+        if (config.connectionPoolSize() != -1) {
+            hikariConfig.setMaximumPoolSize(config.connectionPoolSize());
+        }
 
         this.dataSource = new HikariDataSource(hikariConfig);
     }

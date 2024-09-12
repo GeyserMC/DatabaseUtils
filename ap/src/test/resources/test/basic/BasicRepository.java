@@ -13,7 +13,7 @@ public interface BasicRepository extends IRepository<TestEntity> {
 
     CompletableFuture<Boolean> exists();
 
-    CompletableFuture<Boolean> existsByB(String b);
+    CompletableFuture<Boolean> existsByBEquals(String b);
 
     void update(List<TestEntity> entity);
 

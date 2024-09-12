@@ -111,8 +111,15 @@ public final class SqlRepositoryGenerator extends RepositoryGenerator {
         var builder = new QueryBuilder(context).addRaw("delete from %s", context.tableName());
         if (context.hasBySection()) {
             builder.add("where %s", this::createWhereForFactors);
-        } else {
+        } else if (context.parametersInfo().hasParameters()) {
             builder.add("where %s", this::createWhereForKeys);
+        }
+
+        if (context.hasProjection()) {
+            var limit = context.projection().limit();
+            if (limit != -1) {
+                builder.addRaw("limit " + limit);
+            }
         }
 
         boolean notSelfToSelf =
@@ -124,12 +131,20 @@ public final class SqlRepositoryGenerator extends RepositoryGenerator {
 
         spec.addStatement("String __sql");
         spec.beginControlFlow(
-                "if (this.dialect == $T.POSTGRESQL || this.dialect == $T.ORACLE_DATABASE || this.dialect == $T.SQLITE || this.dialect == $T.MARIADB)",
-                SqlDialect.class,
+                "if (this.dialect == $T.POSTGRESQL || this.dialect == $T.SQLITE || this.dialect == $T.MARIADB)",
                 SqlDialect.class,
                 SqlDialect.class,
                 SqlDialect.class);
         spec.addStatement("__sql = $S", builder.copy().addEndRaw("returning *"));
+        spec.nextControlFlow("else if (this.dialect == $T.ORACLE_DATABASE)", SqlDialect.class);
+        // todo this needs prepareStatement(__sql, new String[] {columnNames})
+        // var oracleDbSqlBuilder = builder.copy()
+        //         .addEndRaw(
+        //                 "returning %s into %s",
+        //                 mapAndJoin(context.entityInfo().columns(), ColumnInfo::name),
+        //                 join(repeat("?", context.columns().size())));
+        // spec.addStatement("__sql = $S", oracleDbSqlBuilder);
+        spec.addStatement("throw new $T($S)", IllegalStateException.class, "This behaviour is not yet implemented!");
         spec.nextControlFlow("else if (this.dialect == $T.SQL_SERVER)", SqlDialect.class);
         spec.addStatement("__sql = $S", builder.copy().addRawBefore("where", "output deleted.*"));
         spec.nextControlFlow(
@@ -271,7 +286,7 @@ public final class SqlRepositoryGenerator extends RepositoryGenerator {
                     builder.dialectDepending() ? "__sql" : '"' + builder.query() + '"');
 
             CharSequence parameterName = "";
-            if (context.parametersInfo().hasValueParameters()) {
+            if (context.parametersInfo().hasParameters()) {
                 parameterName = context.parametersInfo().firstName();
             }
 

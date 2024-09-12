@@ -12,6 +12,7 @@ import org.geysermc.databaseutils.processor.query.section.factor.ProjectionFacto
 import org.geysermc.databaseutils.processor.query.section.projection.ProjectionKeyword;
 import org.geysermc.databaseutils.processor.query.section.projection.keyword.DistinctProjectionKeyword;
 import org.geysermc.databaseutils.processor.query.section.projection.keyword.FirstProjectionKeyword;
+import org.geysermc.databaseutils.processor.query.section.projection.keyword.TopProjectionKeyword;
 
 public record ProjectionSection(List<@NonNull ProjectionFactor> projections) {
     public ProjectionSection(@NonNull List<@NonNull ProjectionFactor> projections) {
@@ -51,6 +52,17 @@ public record ProjectionSection(List<@NonNull ProjectionFactor> projections) {
             }
         }
         return false;
+    }
+
+    public int limit() {
+        for (var factor : projections) {
+            if (factor.keyword() instanceof FirstProjectionKeyword) {
+                return 1;
+            } else if (factor.keyword() instanceof TopProjectionKeyword top) {
+                return top.limit();
+            }
+        }
+        return -1;
     }
 
     /**

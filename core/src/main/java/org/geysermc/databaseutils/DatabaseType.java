@@ -21,7 +21,7 @@ public enum DatabaseType {
     SQLITE(DatabaseCategory.SQL, SqlDialect.SQLITE),
     MONGODB(DatabaseCategory.MONGODB, null);
 
-    private static final DatabaseType[] VALUES = values();
+    public static final DatabaseType[] VALUES = values();
 
     private final DatabaseCategory databaseCategory;
     private final SqlDialect dialect;
@@ -29,6 +29,14 @@ public enum DatabaseType {
     DatabaseType(@NonNull DatabaseCategory databaseCategory, @Nullable SqlDialect dialect) {
         this.databaseCategory = Objects.requireNonNull(databaseCategory);
         this.dialect = dialect;
+    }
+
+    public @NonNull DatabaseCategory databaseCategory() {
+        return databaseCategory;
+    }
+
+    public @Nullable SqlDialect dialect() {
+        return dialect;
     }
 
     public static @Nullable DatabaseType byName(@NonNull String name) {
@@ -39,13 +47,5 @@ public enum DatabaseType {
             }
         }
         return null;
-    }
-
-    public @NonNull DatabaseCategory databaseCategory() {
-        return databaseCategory;
-    }
-
-    public @Nullable SqlDialect dialect() {
-        return dialect;
     }
 }

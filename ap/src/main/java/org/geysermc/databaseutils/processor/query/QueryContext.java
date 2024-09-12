@@ -74,6 +74,10 @@ public record QueryContext(
         return result.projection();
     }
 
+    public boolean hasProjection() {
+        return projection() != null;
+    }
+
     public boolean hasProjectionColumnName() {
         return projection() != null && projection().columnName() != null;
     }

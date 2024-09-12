@@ -53,7 +53,7 @@ public final class BasicRepositoryMongoImpl implements BasicRepository {
     }
 
     @Override
-    public CompletableFuture<Boolean> existsByB(String b) {
+    public CompletableFuture<Boolean> existsByBEquals(String b) {
         return CompletableFuture.supplyAsync(() -> {
             return this.collection.find(Filters.eq("b", b)).limit(1).first() != null;
         } , this.database.executorService());
