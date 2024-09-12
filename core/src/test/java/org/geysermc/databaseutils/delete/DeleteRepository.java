@@ -3,7 +3,7 @@
  * Licensed under the MIT license
  * @link https://github.com/GeyserMC/DatabaseUtils
  */
-package org.geysermc.databaseutils.delete.repository;
+package org.geysermc.databaseutils.delete;
 
 import org.geysermc.databaseutils.IRepository;
 import org.geysermc.databaseutils.ReusableTestRepository;
@@ -15,7 +15,7 @@ import org.geysermc.databaseutils.meta.Repository;
 public interface DeleteRepository extends IRepository<TestEntity>, ReusableTestRepository {
     void insert(TestEntity entity);
 
-    TestEntity findByAAndB(int a, String b);
+    boolean existsByAAndB(int a, String b);
 
     void delete(TestEntity entity);
 

@@ -90,12 +90,30 @@ public class MongoRepositoryGenerator extends RepositoryGenerator {
 
     @Override
     public void addInsert(QueryContext context, MethodSpec.Builder spec) {
+        // theoretically currently the getInsertedIds size should match the amount of documents sent,
+        // since 'ordered' prevents it from inserting the remaining documents in case of a conflict
         wrapInCompletableFuture(spec, context.returnInfo().async(), () -> {
             if (context.parametersInfo().isSelfCollection()) {
-                spec.addStatement(
-                        "this.collection.insertMany($L)",
-                        context.parametersInfo().firstName());
+                var firstName = context.parametersInfo().firstName();
+                spec.beginControlFlow("if ($L.isEmpty())", firstName);
+
+                if (context.typeUtils().isWholeNumberType(context.returnType())) {
+                    spec.addStatement("return 0");
+                    spec.endControlFlow();
+                    spec.addStatement("return this.collection.insertMany($L).getInsertedIds().size()", firstName);
+                    return;
+                }
+
+                spec.addStatement("return $L", context.returnInfo().async() ? "null" : "");
+                spec.endControlFlow();
+                spec.addStatement("this.collection.insertMany($L)", firstName);
             } else if (context.parametersInfo().isSelf()) {
+                if (context.typeUtils().isWholeNumberType(context.returnType())) {
+                    spec.addStatement(
+                            "return this.collection.insertOne($L).getInsertedId() != null ? 1 : 0",
+                            context.parametersInfo().firstName());
+                    return;
+                }
                 spec.addStatement(
                         "this.collection.insertOne($L)",
                         context.parametersInfo().firstName());

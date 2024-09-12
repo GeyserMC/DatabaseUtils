@@ -27,7 +27,14 @@ import org.testcontainers.containers.MySQLContainer;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.oracle.OracleContainer;
 
+/**
+ * TestContext is meant to be shared across all test classes, meaning that parallel test execution shouldn't be enabled.
+ */
 public final class TestContext {
+    public static final TestContext INSTANCE = new TestContext();
+    // public static final TestContext INSTANCE = new TestContext(DatabaseType.SQLITE, DatabaseType.H2,
+    // DatabaseType.MONGODB);
+
     @SuppressWarnings("resource")
     private final Map<DatabaseType, ? extends GenericContainer<?>> containers = new HashMap<>() {
         {
@@ -42,16 +49,18 @@ public final class TestContext {
         }
     };
 
+    private boolean containersEnabled;
+
     private final Map<DatabaseType, Map<Class<?>, IRepository<?>>> repositoriesForType = new ConcurrentHashMap<>();
     private final Set<Class<?>> usedRepositories = new HashSet<>();
     private final ExecutorService executor = Executors.newCachedThreadPool();
     private final Set<DatabaseType> limitedSet;
 
-    public TestContext(DatabaseType... limitedSet) {
+    private TestContext(DatabaseType... limitedSet) {
         this.limitedSet = new HashSet<>(Arrays.asList(limitedSet));
     }
 
-    public TestContext() {
+    private TestContext() {
         this(DatabaseType.values());
     }
 
@@ -61,33 +70,26 @@ public final class TestContext {
     }
 
     public void start(List<Class<? extends IRepository<?>>> repositoryClasses) {
-        // let's start all the databases at the same time, instead of waiting for each one to be ready
-        List<CompletableFuture<?>> futures = new ArrayList<>();
-        for (var entry : containers.entrySet()) {
-            if (!limitedSet.contains(entry.getKey())) {
-                continue;
+        startContainersIfNeeded();
+
+        containers.forEach((type, container) -> {
+            if (!limitedSet.contains(type)) {
+                return;
             }
-            futures.add(CompletableFuture.runAsync(() -> {
-                var type = entry.getKey();
-                var container = entry.getValue();
 
-                container.start();
+            String uri, username = null, password = null;
+            if (container instanceof JdbcDatabaseContainer<?> jdbcContainer) {
+                uri = jdbcContainer.getJdbcUrl();
+                username = jdbcContainer.getUsername();
+                password = jdbcContainer.getPassword();
+            } else if (container instanceof MongoDBContainer mongoContainer) {
+                uri = mongoContainer.getConnectionString() + "/database";
+            } else {
+                throw new RuntimeException("Unknown container type: " + type);
+            }
 
-                String uri, username = null, password = null;
-                if (container instanceof JdbcDatabaseContainer<?> jdbcContainer) {
-                    uri = jdbcContainer.getJdbcUrl();
-                    username = jdbcContainer.getUsername();
-                    password = jdbcContainer.getPassword();
-                } else if (container instanceof MongoDBContainer mongoContainer) {
-                    uri = mongoContainer.getConnectionString() + "/database";
-                } else {
-                    throw new RuntimeException("Unknown container type: " + type);
-                }
-
-                addRepositoriesFor(type, uri, username, password, repositoryClasses);
-            }));
-        }
-        CompletableFuture.allOf(futures.toArray(new CompletableFuture<?>[0])).join();
+            addRepositoriesFor(type, uri, username, password, repositoryClasses);
+        });
 
         if (limitedSet.contains(DatabaseType.H2)) {
             addRepositoriesFor(DatabaseType.H2, null, null, null, repositoryClasses);
@@ -103,7 +105,31 @@ public final class TestContext {
     }
 
     public void stop() {
+        // just to make sure every row is deleted, since this instance can be reused
+        deleteRows();
+        repositoriesForType.clear();
+    }
+
+    private void shutdown() {
         containers.values().forEach(GenericContainer::stop);
+    }
+
+    private void startContainersIfNeeded() {
+        if (containersEnabled) {
+            return;
+        }
+
+        // let's start all the databases at the same time, instead of waiting for each one to be ready
+        List<CompletableFuture<?>> futures = new ArrayList<>();
+        containers.forEach((type, container) -> {
+            if (limitedSet.contains(type)) {
+                futures.add(CompletableFuture.runAsync(container::start));
+            }
+        });
+
+        System.out.println("Downloading (if needed) and launching all database containers, this may take a while");
+        CompletableFuture.allOf(futures.toArray(new CompletableFuture<?>[0])).join();
+        containersEnabled = true;
     }
 
     @SuppressWarnings("unchecked")
@@ -180,5 +206,10 @@ public final class TestContext {
             }
         }
         usedRepositories.clear();
+    }
+
+    static {
+        // apparently this isn't needed, but I like the safeguard
+        Runtime.getRuntime().addShutdownHook(new Thread(INSTANCE::shutdown));
     }
 }

@@ -6,13 +6,12 @@
 package org.geysermc.databaseutils.delete;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.stream.Stream;
 import org.geysermc.databaseutils.DatabaseType;
 import org.geysermc.databaseutils.TestContext;
-import org.geysermc.databaseutils.delete.repository.DeleteRepository;
 import org.geysermc.databaseutils.entity.TestEntity;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
@@ -21,8 +20,7 @@ import org.junit.jupiter.api.DynamicTest;
 import org.junit.jupiter.api.TestFactory;
 
 final class DeleteTests {
-    static TestContext context = new TestContext();
-    // static TestContext context = new TestContext(DatabaseType.SQLITE, DatabaseType.H2, DatabaseType.MONGODB);
+    static TestContext context = TestContext.INSTANCE;
 
     @BeforeAll
     static void setUp() {
@@ -46,13 +44,13 @@ final class DeleteTests {
             repository.insert(new TestEntity(1, "hello", "world!", null));
             repository.insert(new TestEntity(2, "hello", "world!", null));
 
-            assertNotNull(repository.findByAAndB(0, "hello"));
-            assertNotNull(repository.findByAAndB(1, "hello"));
-            assertNotNull(repository.findByAAndB(2, "hello"));
+            assertTrue(repository.existsByAAndB(0, "hello"));
+            assertTrue(repository.existsByAAndB(1, "hello"));
+            assertTrue(repository.existsByAAndB(2, "hello"));
             repository.delete();
-            assertNull(repository.findByAAndB(0, "hello"));
-            assertNull(repository.findByAAndB(1, "hello"));
-            assertNull(repository.findByAAndB(2, "hello"));
+            assertFalse(repository.existsByAAndB(0, "hello"));
+            assertFalse(repository.existsByAAndB(1, "hello"));
+            assertFalse(repository.existsByAAndB(2, "hello"));
         });
     }
 
@@ -63,11 +61,11 @@ final class DeleteTests {
             repository.insert(new TestEntity(1, "hello", "world!", null));
             repository.insert(new TestEntity(2, "hello", "world!", null));
 
-            assertNotNull(repository.findByAAndB(1, "hello"));
+            assertTrue(repository.existsByAAndB(1, "hello"));
             repository.delete(new TestEntity(1, "hello", "world!", null));
-            assertNull(repository.findByAAndB(1, "hello"));
-            assertNotNull(repository.findByAAndB(0, "hello"));
-            assertNotNull(repository.findByAAndB(2, "hello"));
+            assertFalse(repository.existsByAAndB(1, "hello"));
+            assertTrue(repository.existsByAAndB(0, "hello"));
+            assertTrue(repository.existsByAAndB(2, "hello"));
         });
     }
 
@@ -78,11 +76,11 @@ final class DeleteTests {
             repository.insert(new TestEntity(1, "hello", "world!", null));
             repository.insert(new TestEntity(2, "hello", "world!", null));
 
-            assertNotNull(repository.findByAAndB(1, "hello"));
+            assertTrue(repository.existsByAAndB(1, "hello"));
             repository.deleteByAAndB(1, "hello");
-            assertNull(repository.findByAAndB(1, "hello"));
-            assertNotNull(repository.findByAAndB(0, "hello"));
-            assertNotNull(repository.findByAAndB(2, "hello"));
+            assertFalse(repository.existsByAAndB(1, "hello"));
+            assertTrue(repository.existsByAAndB(0, "hello"));
+            assertTrue(repository.existsByAAndB(2, "hello"));
         });
     }
 
@@ -93,13 +91,13 @@ final class DeleteTests {
             repository.insert(new TestEntity(1, "hello", "world!", null));
             repository.insert(new TestEntity(2, "hello", "world!", null));
 
-            assertNotNull(repository.findByAAndB(0, "hello"));
-            assertNotNull(repository.findByAAndB(1, "hello"));
-            assertNotNull(repository.findByAAndB(2, "hello"));
+            assertTrue(repository.existsByAAndB(0, "hello"));
+            assertTrue(repository.existsByAAndB(1, "hello"));
+            assertTrue(repository.existsByAAndB(2, "hello"));
             assertEquals(3, repository.deleteByB("hello"));
-            assertNull(repository.findByAAndB(0, "hello"));
-            assertNull(repository.findByAAndB(1, "hello"));
-            assertNull(repository.findByAAndB(2, "hello"));
+            assertFalse(repository.existsByAAndB(0, "hello"));
+            assertFalse(repository.existsByAAndB(1, "hello"));
+            assertFalse(repository.existsByAAndB(2, "hello"));
         });
     }
 
@@ -112,11 +110,11 @@ final class DeleteTests {
                     repository.insert(new TestEntity(1, "hello", "world!", null));
                     repository.insert(new TestEntity(2, "hello", "world!", null));
 
-                    assertNotNull(repository.findByAAndB(1, "hello"));
+                    assertTrue(repository.existsByAAndB(1, "hello"));
                     assertEquals(1, repository.deleteFirstByB("hello"));
-                    assertNull(repository.findByAAndB(0, "hello"));
-                    assertNotNull(repository.findByAAndB(1, "hello"));
-                    assertNotNull(repository.findByAAndB(2, "hello"));
+                    assertFalse(repository.existsByAAndB(0, "hello"));
+                    assertTrue(repository.existsByAAndB(1, "hello"));
+                    assertTrue(repository.existsByAAndB(2, "hello"));
                 },
                 DatabaseType.ORACLE_DATABASE,
                 DatabaseType.POSTGRESQL,
@@ -134,14 +132,13 @@ final class DeleteTests {
                     repository.insert(new TestEntity(1, "hello", "world!", null));
                     repository.insert(new TestEntity(2, "hello", "world!", null));
 
-                    assertNotNull(repository.findByAAndB(1, "hello"));
+                    assertTrue(repository.existsByAAndB(1, "hello"));
                     var returning = repository.deleteReturning(1, "hello");
-                    assertNotNull(returning);
                     assertEquals(new TestEntity(1, "hello", "world!", null), returning);
 
-                    assertNull(repository.findByAAndB(1, "hello"));
-                    assertNotNull(repository.findByAAndB(0, "hello"));
-                    assertNotNull(repository.findByAAndB(2, "hello"));
+                    assertFalse(repository.existsByAAndB(1, "hello"));
+                    assertTrue(repository.existsByAAndB(0, "hello"));
+                    assertTrue(repository.existsByAAndB(2, "hello"));
                 },
                 DatabaseType.H2,
                 DatabaseType.MYSQL,

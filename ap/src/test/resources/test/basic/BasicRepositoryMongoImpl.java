@@ -83,6 +83,9 @@ public final class BasicRepositoryMongoImpl implements BasicRepository {
 
     @Override
     public void insert(List<TestEntity> entities) {
+        if (entities.isEmpty()) {
+            return;
+        }
         this.collection.insertMany(entities);
     }
 
