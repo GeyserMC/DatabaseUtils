@@ -16,7 +16,6 @@ import org.geysermc.databaseutils.processor.util.InvalidRepositoryException;
 
 public abstract class Action {
     private final String actionType;
-    private final boolean allowSelfParameter;
     private final boolean allowReturnAnySelfOrColumn;
     private final boolean supportsFilter;
     private final boolean remainingParametersAsColumns;
@@ -24,13 +23,11 @@ public abstract class Action {
 
     protected Action(
             String actionType,
-            boolean allowSelfParameter,
             boolean allowReturnAnySelfOrColumn,
             boolean supportsFilter,
             boolean remainingParametersAsColumns,
             ProjectionKeywordCategory... supportedProjectionCategories) {
         this.actionType = actionType;
-        this.allowSelfParameter = allowSelfParameter;
         this.allowReturnAnySelfOrColumn = allowReturnAnySelfOrColumn;
         this.supportsFilter = supportsFilter;
         this.remainingParametersAsColumns = remainingParametersAsColumns;
@@ -39,10 +36,6 @@ public abstract class Action {
 
     public String actionType() {
         return actionType;
-    }
-
-    public boolean allowSelfParameter() {
-        return allowSelfParameter;
     }
 
     public boolean allowReturnAnySelfOrColumn() {

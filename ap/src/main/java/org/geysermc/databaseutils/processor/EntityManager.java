@@ -18,7 +18,6 @@ import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
-import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.TypeMirror;
 import org.geysermc.databaseutils.meta.Entity;
@@ -85,8 +84,7 @@ final class EntityManager {
                 continue;
             }
 
-            TypeElement typeElement = typeUtils.toBoxedTypeElement(field.asType());
-            columns.add(new ColumnInfo(field.getSimpleName(), typeElement, typeElement.getQualifiedName()));
+            columns.add(new ColumnInfo(field.getSimpleName(), typeUtils.toBoxedTypeElement(field.asType())));
 
             if (hasAnnotation(field, Key.class)) {
                 keys.add(field.getSimpleName());
@@ -107,9 +105,9 @@ final class EntityManager {
             }
 
             for (int i = 0; i < parameters.size(); i++) {
-                var parameterType =
-                        typeUtils.toBoxedTypeElement(parameters.get(i).asType()).getQualifiedName();
-                if (!columns.get(i).typeName().equals(parameterType)) {
+                // todo since we expose the parameters, we might have to box them everywhere to be sure
+                if (!typeUtils.isTypeWithBoxed(
+                        columns.get(i).asType(), parameters.get(i).asType())) {
                     continue constructors;
                 }
             }
@@ -118,7 +116,8 @@ final class EntityManager {
         }
 
         if (!validConstructorFound) {
-            throw new IllegalStateException("No valid all-arg constructor found or invalid parameter order");
+            throw new IllegalStateException(
+                    "No valid all-arg constructor found or invalid parameter order for %s".formatted(typeMirror));
         }
 
         if (!keys.isEmpty()) {

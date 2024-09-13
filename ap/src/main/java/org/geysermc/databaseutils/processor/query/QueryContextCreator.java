@@ -154,18 +154,13 @@ public class QueryContextCreator {
 
         // if there is no By section and there are parameters, it should be the entity or the provided projection
         if (readResult.bySection() == null && parameterCount == 1) {
-            if (parameterInfo.isAnySelf() && !action.allowSelfParameter()) {
-                throw new InvalidRepositoryException(
-                        "Action %s (for %s) doesn't support entity as parameter!", action.actionType(), element);
-            }
-
             boolean validated = false;
             if (readResult.projection() != null) {
                 var column = info.columnFor(readResult.projection().columnName());
                 // specifying the columnName is optional
                 if (column != null) {
                     action.validate(queryContext, type -> {
-                        if (!typeUtils.isAssignable(type, column.typeName())) {
+                        if (!typeUtils.isAssignable(type, column.asType())) {
                             throw new InvalidRepositoryException(
                                     "Expected response of %s to be assignable from %s",
                                     element.getSimpleName(), column.typeName());

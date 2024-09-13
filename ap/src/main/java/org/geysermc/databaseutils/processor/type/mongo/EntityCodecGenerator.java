@@ -53,9 +53,9 @@ public final class EntityCodecGenerator {
             if (MongoTypeMappingRegistry.mongoTypeFor(column.typeName()) != null) {
                 continue;
             }
-            var fieldType = ParameterizedTypeName.get(ClassName.get(Codec.class), ClassName.get(column.type()));
+            var fieldType = ParameterizedTypeName.get(ClassName.get(Codec.class), ClassName.get(column.asType()));
             typeSpec.addField(fieldType, column.name().toString(), Modifier.PRIVATE, Modifier.FINAL);
-            method.addStatement("this.$L = registry.get($T.class)", column.name(), column.type());
+            method.addStatement("this.$L = registry.get($T.class)", column.name(), column.asType());
         }
 
         return method.build();

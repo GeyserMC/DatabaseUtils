@@ -69,7 +69,7 @@ public class MongoRepositoryGenerator extends RepositoryGenerator {
         wrapInCompletableFuture(spec, context.returnInfo().async(), () -> {
             spec.addStatement(
                     "return this.collection.find($L)$L$L",
-                    createFilter(context.bySectionFactors()),
+                    createFindFilter(context),
                     createSort(context),
                     createProjection(context));
         });
@@ -81,7 +81,7 @@ public class MongoRepositoryGenerator extends RepositoryGenerator {
         wrapInCompletableFuture(spec, context.returnInfo().async(), () -> {
             spec.addStatement(
                     "return this.collection.find($L)$L.limit(1)$L != null",
-                    createFilter(context.bySectionFactors()),
+                    createFindFilter(context),
                     createSort(context),
                     createProjection(context));
         });
@@ -471,5 +471,18 @@ public class MongoRepositoryGenerator extends RepositoryGenerator {
             builder.add(".append($S, $L)", column.name(), column.name());
         }
         return builder.build();
+    }
+
+    private CodeBlock createFindFilter(QueryContext context) {
+        CodeBlock filter;
+        if (context.hasBySection()) {
+            filter = createFilter(context.bySectionFactors());
+        } else if (context.hasParameters()) {
+            var name = context.parametersInfo().firstName();
+            filter = createFilter(context.entityInfo().keyColumnsAsFactors(AndFactor.INSTANCE, name));
+        } else {
+            filter = createFilter(null);
+        }
+        return filter;
     }
 }

@@ -13,7 +13,7 @@ import org.geysermc.databaseutils.processor.util.InvalidRepositoryException;
 final class UpdateAction extends Action {
     UpdateAction() {
         // todo add allowReturnAnySelfOrColumn support
-        super("update", true, false, true, true);
+        super("update", false, true, true);
     }
 
     @Override

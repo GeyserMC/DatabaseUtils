@@ -12,7 +12,7 @@ import org.geysermc.databaseutils.processor.type.RepositoryGenerator;
 final class InsertAction extends Action {
     InsertAction() {
         // todo add allowReturnAnySelfOrColumn support
-        super("insert", true, false, false, false);
+        super("insert", false, false, false);
     }
 
     @Override

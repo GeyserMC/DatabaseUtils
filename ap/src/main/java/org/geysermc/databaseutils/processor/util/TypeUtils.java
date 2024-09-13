@@ -21,23 +21,7 @@ import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
 
-public final class TypeUtils {
-    private final Types typeUtils;
-    private final Elements elementUtils;
-
-    public TypeUtils(Types typeUtils, Elements elementUtils) {
-        this.typeUtils = typeUtils;
-        this.elementUtils = elementUtils;
-    }
-
-    public Types typeUtils() {
-        return typeUtils;
-    }
-
-    public Elements elementUtils() {
-        return elementUtils;
-    }
-
+public record TypeUtils(Types typeUtils, Elements elementUtils) {
     public TypeElement elementFor(CharSequence name) {
         return elementUtils.getTypeElement(name);
     }
@@ -69,14 +53,6 @@ public final class TypeUtils {
 
     public boolean isAssignable(TypeMirror impl, TypeMirror base) {
         return typeUtils.isAssignable(impl, base);
-    }
-
-    public boolean isAssignable(CharSequence impl, TypeMirror base) {
-        return isAssignable(elementFor(impl).asType(), typeUtils.erasure(base));
-    }
-
-    public boolean isAssignable(Class<?> impl, TypeMirror base) {
-        return isAssignable(impl.getCanonicalName(), base);
     }
 
     public boolean isAssignable(TypeMirror impl, CharSequence base) {
@@ -115,10 +91,6 @@ public final class TypeUtils {
         return isType(clazz.getCanonicalName(), mirror);
     }
 
-    public static boolean isType(CharSequence expected, TypeElement actual) {
-        return actual.getQualifiedName().contentEquals(expected);
-    }
-
     public boolean isType(CharSequence expected, TypeMirror actual) {
         return isType(elementFor(expected).asType(), actual);
     }
@@ -127,16 +99,8 @@ public final class TypeUtils {
         return typeUtils.isSameType(typeUtils.erasure(expected), typeUtils.erasure(actual));
     }
 
-    public static boolean isType(Class<?> clazz, TypeElement element) {
-        return isType(clazz, element.getQualifiedName());
-    }
-
-    public static boolean isType(Class<?> clazz, CharSequence canonicalName) {
-        return clazz.getCanonicalName().contentEquals(canonicalName);
-    }
-
-    public static boolean isType(CharSequence expected, CharSequence actual) {
-        return CharSequence.compare(expected, actual) == 0;
+    public boolean isTypeWithBoxed(TypeMirror expected, TypeMirror actual) {
+        return isType(toBoxedMirror(expected), toBoxedMirror(actual));
     }
 
     public static String packageNameFor(Name className) {

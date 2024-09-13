@@ -85,4 +85,8 @@ public record QueryContext(
     public ColumnInfo projectionColumnInfo() {
         return entityInfo.columnFor(projection().columnName());
     }
+
+    public boolean hasParameters() {
+        return parametersInfo.hasParameters();
+    }
 }

@@ -9,6 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.UUID;
 import java.util.stream.Stream;
 import org.geysermc.databaseutils.DatabaseType;
 import org.geysermc.databaseutils.TestContext;
@@ -63,6 +64,25 @@ final class DeleteTests {
 
             assertTrue(repository.existsByAAndB(1, "hello"));
             repository.delete(new TestEntity(1, "hello", "world!", null));
+            assertFalse(repository.existsByAAndB(1, "hello"));
+            assertTrue(repository.existsByAAndB(0, "hello"));
+            assertTrue(repository.existsByAAndB(2, "hello"));
+        });
+    }
+
+    @TestFactory
+    Stream<DynamicTest> deleteSingleEntityJustCheckKeys() {
+        // current behaviour is that value of the keys determine whether an item is deleted.
+        // not the match of every data type
+        return context.allTypesFor(DeleteRepository.class, repository -> {
+            repository.insert(new TestEntity(0, "hello", "world!", null));
+            repository.insert(new TestEntity(1, "hello", "world!", null));
+            repository.insert(new TestEntity(2, "hello", "world!", null));
+            assertTrue(repository.existsByAAndB(0, "hello"));
+            assertTrue(repository.existsByAAndB(1, "hello"));
+            assertTrue(repository.existsByAAndB(2, "hello"));
+
+            repository.delete(new TestEntity(1, "hello", "steve!", UUID.nameUUIDFromBytes("steve".getBytes())));
             assertFalse(repository.existsByAAndB(1, "hello"));
             assertTrue(repository.existsByAAndB(0, "hello"));
             assertTrue(repository.existsByAAndB(2, "hello"));

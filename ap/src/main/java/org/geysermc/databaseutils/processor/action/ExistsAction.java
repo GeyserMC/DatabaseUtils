@@ -13,7 +13,7 @@ import org.geysermc.databaseutils.processor.util.InvalidRepositoryException;
 
 final class ExistsAction extends Action {
     ExistsAction() {
-        super("exists", false, false, true, false, ProjectionKeywordCategory.UNIQUE);
+        super("exists", false, true, false, ProjectionKeywordCategory.UNIQUE);
     }
 
     @Override

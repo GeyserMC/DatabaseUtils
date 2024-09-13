@@ -13,7 +13,7 @@ import org.geysermc.databaseutils.processor.util.InvalidRepositoryException;
 
 final class DeleteAction extends Action {
     DeleteAction() {
-        super("delete", true, true, true, false, ProjectionKeywordCategory.LIMIT);
+        super("delete", true, true, false, ProjectionKeywordCategory.LIMIT);
     }
 
     @Override

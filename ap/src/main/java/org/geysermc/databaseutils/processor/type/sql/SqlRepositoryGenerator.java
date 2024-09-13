@@ -67,6 +67,8 @@ public final class SqlRepositoryGenerator extends RepositoryGenerator {
                 .addRaw("from %s", context.tableName());
         if (context.hasBySection()) {
             builder.add("where %s", this::createWhereForFactors);
+        } else if (context.hasParameters()) {
+            builder.add("where %s", this::createWhereForKeys);
         }
         executeAndReturn(spec, context, builder);
     }
@@ -76,6 +78,8 @@ public final class SqlRepositoryGenerator extends RepositoryGenerator {
         var builder = new QueryBuilder(context).addRaw("select 1 from %s", context.tableName());
         if (context.hasBySection()) {
             builder.add("where %s", this::createWhereForFactors);
+        } else if (context.hasParameters()) {
+            builder.add("where %s", this::createWhereForKeys);
         }
         addExecuteQueryData(spec, context, builder, () -> spec.addStatement("return __result.next()"));
     }
@@ -111,7 +115,7 @@ public final class SqlRepositoryGenerator extends RepositoryGenerator {
         var builder = new QueryBuilder(context).addRaw("delete from %s", context.tableName());
         if (context.hasBySection()) {
             builder.add("where %s", this::createWhereForFactors);
-        } else if (context.parametersInfo().hasParameters()) {
+        } else if (context.hasParameters()) {
             builder.add("where %s", this::createWhereForKeys);
         }
 
@@ -286,7 +290,7 @@ public final class SqlRepositoryGenerator extends RepositoryGenerator {
                     builder.dialectDepending() ? "__sql" : '"' + builder.query() + '"');
 
             CharSequence parameterName = "";
-            if (context.parametersInfo().hasParameters()) {
+            if (context.hasParameters()) {
                 parameterName = context.parametersInfo().firstName();
             }
 

@@ -5,23 +5,18 @@
  */
 package org.geysermc.databaseutils.processor.action;
 
+import static org.geysermc.databaseutils.processor.query.section.projection.ProjectionKeywordCategory.LIMIT;
+import static org.geysermc.databaseutils.processor.query.section.projection.ProjectionKeywordCategory.SUMMARY;
+import static org.geysermc.databaseutils.processor.query.section.projection.ProjectionKeywordCategory.UNIQUE;
+
 import com.squareup.javapoet.MethodSpec;
 import org.geysermc.databaseutils.processor.query.QueryContext;
-import org.geysermc.databaseutils.processor.query.section.projection.ProjectionKeywordCategory;
 import org.geysermc.databaseutils.processor.type.RepositoryGenerator;
 import org.geysermc.databaseutils.processor.util.InvalidRepositoryException;
 
 final class FindAction extends Action {
     FindAction() {
-        super(
-                "find",
-                false,
-                true,
-                true,
-                false,
-                ProjectionKeywordCategory.UNIQUE,
-                ProjectionKeywordCategory.SUMMARY,
-                ProjectionKeywordCategory.LIMIT);
+        super("find", true, true, false, UNIQUE, SUMMARY, LIMIT);
     }
 
     @Override

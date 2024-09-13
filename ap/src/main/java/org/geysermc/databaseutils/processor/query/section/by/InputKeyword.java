@@ -43,7 +43,7 @@ public abstract class InputKeyword {
             var type = input.asType();
             var name = input.getSimpleName();
 
-            if (!typeUtils.isAssignable(column.typeName(), type)) {
+            if (!typeUtils.isAssignable(column.asType(), type)) {
                 throw new IllegalStateException(String.format(
                         "Expected a type assignable from column %s as %s with type %s, got %s",
                         column.name(), name, column.typeName(), typeUtils.canonicalName(type)));

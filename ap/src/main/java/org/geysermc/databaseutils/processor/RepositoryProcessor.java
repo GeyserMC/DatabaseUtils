@@ -73,7 +73,7 @@ public final class RepositoryProcessor extends AbstractProcessor {
         // generate repositories
         for (Element element : env.getElementsAnnotatedWith(Repository.class)) {
             if (element.getKind() != ElementKind.INTERFACE) {
-                error("Repositories can only be interfaces!");
+                error(element, "Repositories can only be interfaces!");
                 continue;
             }
 
@@ -84,7 +84,7 @@ public final class RepositoryProcessor extends AbstractProcessor {
                     results.get(i).add(result.get(i));
                 }
             } catch (InvalidRepositoryException | IllegalStateException exception) {
-                error(exception.getMessage());
+                error(element, exception);
                 errorOccurred = true;
             }
         }
@@ -151,7 +151,7 @@ public final class RepositoryProcessor extends AbstractProcessor {
     private List<RepositoryGenerator> processRepository(TypeElement repository) {
         TypeMirror entityType = null;
         for (TypeMirror mirror : repository.getInterfaces()) {
-            if (TypeUtils.isType(IRepository.class, MoreTypes.asTypeElement(mirror))) {
+            if (typeUtils.isType(IRepository.class, mirror)) {
                 entityType = MoreTypes.asDeclared(mirror).getTypeArguments().get(0);
             }
         }
@@ -190,14 +190,37 @@ public final class RepositoryProcessor extends AbstractProcessor {
                 throw new InvalidRepositoryException("No available actions for %s", methodName);
             }
 
-            var queryContext = new QueryContextCreator(action, result, element, entity, typeUtils).create();
-            action.addTo(generators, queryContext);
+            try {
+                var queryContext = new QueryContextCreator(action, result, element, entity, typeUtils).create();
+                action.addTo(generators, queryContext);
+            } catch (Throwable exception) {
+                error(element, exception);
+            }
         }
 
         return generators;
     }
 
-    private void error(final String message, final Object... arguments) {
-        this.messager.printMessage(Diagnostic.Kind.ERROR, String.format(Locale.ROOT, message, arguments));
+    private void error(Element cause, String message, Object... arguments) {
+        this.messager.printMessage(Diagnostic.Kind.ERROR, String.format(Locale.ROOT, message, arguments), cause);
+    }
+
+    private void error(Element cause, Throwable exception) {
+        // trimming down the exception until the first trace of ourselves.
+        // This would be either a test class or our RepositoryProcessor.
+        // This makes the exception much easier to read
+        int lastOwnTrace = 0;
+        StringBuilder stackTrace = new StringBuilder(exception.toString()).append('\n');
+        for (StackTraceElement traceElement : exception.getStackTrace()) {
+            stackTrace.append(traceElement.toString()).append('\n');
+            if (traceElement.getClassName().startsWith("org.geysermc.databaseutils")) {
+                lastOwnTrace = stackTrace.length() - 1;
+            }
+        }
+
+        if (lastOwnTrace != stackTrace.length() - 1) {
+            stackTrace.delete(lastOwnTrace, stackTrace.length());
+        }
+        this.messager.printMessage(Diagnostic.Kind.ERROR, stackTrace, cause);
     }
 }
