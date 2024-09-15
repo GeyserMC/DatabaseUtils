@@ -169,6 +169,13 @@ public final class TestContext {
         return builder.build();
     }
 
+    public <T extends IRepository<?>> Stream<DynamicTest> allTypesForOnly(
+            Class<T> repositoryClass, Consumer<T> callback, DatabaseType... includedTypes) {
+        var excluded = new ArrayList<>(List.of(DatabaseType.values()));
+        excluded.removeAll(List.of(includedTypes));
+        return allTypesForBut(repositoryClass, callback, excluded.toArray(DatabaseType[]::new));
+    }
+
     private void addRepositoriesFor(
             DatabaseType type,
             String uri,

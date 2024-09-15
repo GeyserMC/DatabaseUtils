@@ -3,6 +3,7 @@ package test.advanced;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.model.Filters;
+import com.mongodb.client.model.Updates;
 import java.lang.Boolean;
 import java.lang.Exception;
 import java.lang.IllegalStateException;
@@ -12,7 +13,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import org.bson.Document;
 import org.bson.conversions.Bson;
 import org.geysermc.databaseutils.codec.TypeCodec;
 import org.geysermc.databaseutils.codec.TypeCodecRegistry;
@@ -52,14 +52,14 @@ public final class AdvancedRepositoryMongoImpl implements AdvancedRepository {
 
     @Override
     public void updateByBAndC(String b, String oldC, String c) {
-        this.collection.updateMany(Filters.and(Filters.eq("b", b), Filters.eq("c", oldC)), new Document().append("c", c));
+        this.collection.updateMany(Filters.and(Filters.eq("b", b), Filters.eq("c", oldC)), Updates.combine(Updates.set("c", c)));
     }
 
     @Override
     public CompletableFuture<Boolean> deleteByAAndBAndC(int a, String b, String c) {
         return CompletableFuture.supplyAsync(() -> {
-            int __count;
-            __count = (int) this.collection.deleteMany(Filters.and(Filters.eq("a", a), Filters.and(Filters.eq("b", b), Filters.eq("c", c)))).getDeletedCount();
+            long __count;
+            __count = (long) this.collection.deleteMany(Filters.and(Filters.eq("a", a), Filters.and(Filters.eq("b", b), Filters.eq("c", c)))).getDeletedCount();
             return __count > 0;
         } , this.database.executorService());
     }

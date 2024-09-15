@@ -112,12 +112,23 @@ public final class SqlRepositoryGenerator extends RepositoryGenerator {
 
     @Override
     public void addDelete(QueryContext context, MethodSpec.Builder spec) {
+        // https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/DELETE.html
+        // https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/ROWNUM-Pseudocolumn.html for limit
+        // https://learn.microsoft.com/en-us/sql/t-sql/statements/delete-transact-sql?view=sql-server-ver16
+        // https://www.sqlite.org/lang_delete.html
+        // https://h2database.com/html/commands.html#delete
+        // https://dev.mysql.com/doc/refman/8.4/en/delete.html
+        // https://mariadb.com/kb/en/delete/
+
+        // order by is not supported by: oracledb, mssql, h2, sqlite (not enabled in xerial)
+
         var builder = new QueryBuilder(context).addRaw("delete from %s", context.tableName());
         if (context.hasBySection()) {
             builder.add("where %s", this::createWhereForFactors);
         } else if (context.hasParameters()) {
             builder.add("where %s", this::createWhereForKeys);
         }
+        // todo use 'truncate table' for dialects supporting it
 
         if (context.hasProjection()) {
             var limit = context.projection().limit();
@@ -133,6 +144,7 @@ public final class SqlRepositoryGenerator extends RepositoryGenerator {
             return;
         }
 
+        // todo if returning is needed and a projection column name is given, only request that specific column
         spec.addStatement("String __sql");
         spec.beginControlFlow(
                 "if (this.dialect == $T.POSTGRESQL || this.dialect == $T.SQLITE || this.dialect == $T.MARIADB)",
@@ -150,6 +162,7 @@ public final class SqlRepositoryGenerator extends RepositoryGenerator {
         // spec.addStatement("__sql = $S", oracleDbSqlBuilder);
         spec.addStatement("throw new $T($S)", IllegalStateException.class, "This behaviour is not yet implemented!");
         spec.nextControlFlow("else if (this.dialect == $T.SQL_SERVER)", SqlDialect.class);
+        // https://learn.microsoft.com/en-us/sql/t-sql/queries/output-clause-transact-sql?view=sql-server-ver16
         spec.addStatement("__sql = $S", builder.copy().addRawBefore("where", "output deleted.*"));
         spec.nextControlFlow(
                 "else if (this.dialect == $T.H2 || this.dialect == $T.MYSQL)", SqlDialect.class, SqlDialect.class);

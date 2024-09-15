@@ -126,21 +126,38 @@ final class DeleteTests {
         return context.allTypesForBut(
                 DeleteRepository.class,
                 repository -> {
-                    repository.insert(new TestEntity(0, "hello", "world!", null));
                     repository.insert(new TestEntity(1, "hello", "world!", null));
                     repository.insert(new TestEntity(2, "hello", "world!", null));
+                    repository.insert(new TestEntity(0, "hello", "world!", null));
 
-                    assertTrue(repository.existsByAAndB(1, "hello"));
                     assertEquals(1, repository.deleteFirstByB("hello"));
-                    assertFalse(repository.existsByAAndB(0, "hello"));
-                    assertTrue(repository.existsByAAndB(1, "hello"));
+                    assertFalse(repository.existsByAAndB(1, "hello"));
                     assertTrue(repository.existsByAAndB(2, "hello"));
+                    assertTrue(repository.existsByAAndB(0, "hello"));
                 },
                 DatabaseType.ORACLE_DATABASE,
                 DatabaseType.POSTGRESQL,
                 DatabaseType.SQLITE);
         // delete limit is a flag that needs to be enabled during compiling on sqlite, and on Oracle and Postgres it
         // doesn't exist. So we have to work around this in the future by doing a subquery
+    }
+
+    @TestFactory
+    Stream<DynamicTest> deleteFirstOrderBy() {
+        // todo indexes are not yet added for sql types
+        return context.allTypesForOnly(
+                DeleteRepository.class,
+                repository -> {
+                    repository.insert(new TestEntity(1, "hello", "world!", null));
+                    repository.insert(new TestEntity(2, "hello", "world!", null));
+                    repository.insert(new TestEntity(0, "hello", "world!", null));
+
+                    assertEquals(1, repository.deleteFirstByBOrderByA("hello"));
+                    assertFalse(repository.existsByAAndB(0, "hello"));
+                    assertTrue(repository.existsByAAndB(1, "hello"));
+                    assertTrue(repository.existsByAAndB(2, "hello"));
+                },
+                DatabaseType.MONGODB);
     }
 
     @TestFactory
@@ -164,5 +181,31 @@ final class DeleteTests {
                 DatabaseType.MYSQL,
                 DatabaseType.ORACLE_DATABASE);
         // see readme why those are excluded for now
+    }
+
+    @TestFactory
+    Stream<DynamicTest> deleteFirstWithOrderReturning() {
+        // todo allow dialect specific impls, then impl this
+        return context.allTypesForBut(
+                DeleteRepository.class,
+                repository -> {
+                    repository.insert(new TestEntity(1, "hello", "world!", null));
+                    repository.insert(new TestEntity(2, "hello", "world!", null));
+                    repository.insert(new TestEntity(0, "hello", "world!", null));
+
+                    assertEquals(
+                            new TestEntity(0, "hello", "world!", null),
+                            repository.deleteFirstWithOrderReturning("hello"));
+                    assertFalse(repository.existsByAAndB(0, "hello"));
+                    assertTrue(repository.existsByAAndB(1, "hello"));
+                    assertTrue(repository.existsByAAndB(2, "hello"));
+                },
+                DatabaseType.ORACLE_DATABASE,
+                DatabaseType.POSTGRESQL,
+                DatabaseType.SQLITE,
+                DatabaseType.H2,
+                DatabaseType.MYSQL,
+                DatabaseType.MONGODB,
+                DatabaseType.MARIADB);
     }
 }

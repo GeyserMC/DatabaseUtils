@@ -46,6 +46,9 @@ public class SqlDatabaseGenerator extends DatabaseGenerator {
     }
 
     private CodeBlock createEntityQuery(EntityInfo entity) {
+        // https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/Data-Types.html
+        // https://docs.oracle.com/en/database/oracle/oracle-database/23/gmswn/database-gateway-sqlserver-data-type-conversion.html
+
         var builder = CodeBlock.builder();
         // todo indexes are not added atm
         builder.add("\"CREATE TABLE IF NOT EXISTS $L (\" +\n", entity.name());

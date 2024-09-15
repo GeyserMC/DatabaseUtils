@@ -24,7 +24,7 @@ public interface InsertRepository extends IRepository<TestEntity>, ReusableTestR
     @Query("insert")
     int insertWithCount(List<TestEntity> entities);
 
-    boolean existsByAAndB(int a, String b);
+    TestEntity findByAAndB(int a, String b);
 
     @Override
     void delete();

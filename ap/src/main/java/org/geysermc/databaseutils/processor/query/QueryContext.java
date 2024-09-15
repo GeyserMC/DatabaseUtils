@@ -8,6 +8,7 @@ package org.geysermc.databaseutils.processor.query;
 import java.util.List;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
+import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.geysermc.databaseutils.processor.info.ColumnInfo;
@@ -68,6 +69,14 @@ public record QueryContext(
 
     public TypeMirror returnType() {
         return returnInfo.type();
+    }
+
+    public TypeMirror countableReturnType() {
+        if (typeUtils.isWholeNumberType(returnType())) {
+            return typeUtils.unboxType(returnType());
+        }
+        // for Boolean and everything else
+        return typeUtils.typeUtils().getPrimitiveType(TypeKind.LONG);
     }
 
     public ProjectionSection projection() {

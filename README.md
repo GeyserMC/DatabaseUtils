@@ -6,9 +6,8 @@ currently examples can be found in the tests of the AP module and the tests of t
 
 # What's left to do?
 - make 'simple' actions like `insert` more flexible
-  - allow it to return whether there was a row added
   - support adding every variable of the entity as parameter
-- add `save` which either inserts the entity if it's not present or updates the already existing entity
+- add `upsert` which either inserts the entity if it's not present or updates the already existing entity
 - adding migrations
 - and plenty more
 

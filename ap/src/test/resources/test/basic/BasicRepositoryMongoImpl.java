@@ -61,6 +61,9 @@ public final class BasicRepositoryMongoImpl implements BasicRepository {
 
     @Override
     public void update(List<TestEntity> entity) {
+        if (entity.isEmpty()) {
+            return;
+        }
         var __bulkOperations = new ArrayList<WriteModel<TestEntity>>();
         for (var __entry : entity) {
             __bulkOperations.add(new ReplaceOneModel<>(Filters.and(Filters.eq("a", __entry.a()), Filters.eq("b", __entry.b())), __entry));

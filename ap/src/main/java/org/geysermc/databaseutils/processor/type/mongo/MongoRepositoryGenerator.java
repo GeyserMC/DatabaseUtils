@@ -11,6 +11,7 @@ import com.mongodb.client.model.DeleteOneModel;
 import com.mongodb.client.model.Filters;
 import com.mongodb.client.model.ReplaceOneModel;
 import com.mongodb.client.model.Sorts;
+import com.mongodb.client.model.Updates;
 import com.mongodb.client.model.WriteModel;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.CodeBlock;
@@ -21,7 +22,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 import javax.lang.model.element.Modifier;
-import org.bson.Document;
 import org.bson.conversions.Bson;
 import org.checkerframework.checker.nullness.qual.NonNull;
 import org.geysermc.databaseutils.DatabaseCategory;
@@ -138,19 +138,34 @@ public class MongoRepositoryGenerator extends RepositoryGenerator {
 
             if (context.parametersInfo().isSelf()) {
                 var name = context.parametersInfo().firstName();
-                spec.addStatement(
-                        "this.collection.replaceOne($L, $L)",
-                        createFilter(context.entityInfo().keyColumnsAsFactors(AndFactor.INSTANCE, name)),
-                        name);
+                var filter = createFilter(context.entityInfo().keyColumnsAsFactors(AndFactor.INSTANCE, name));
+                if (context.typeUtils().isWholeNumberType(context.returnType())) {
+                    spec.addStatement(
+                            "return ($T) this.collection.replaceOne($L, $L).getModifiedCount()",
+                            context.countableReturnType(),
+                            filter,
+                            name);
+                    return;
+                }
+                spec.addStatement("this.collection.replaceOne($L, $L)", filter, name);
             } else if (context.parametersInfo().isSelfCollection()) {
+                var name = context.parametersInfo().firstName();
+
+                spec.beginControlFlow("if ($L.isEmpty())", name);
+                if (context.typeUtils().isWholeNumberType(context.returnType())) {
+                    spec.addStatement("return 0");
+                } else {
+                    spec.addStatement("return $L", context.returnInfo().async() ? "null" : "");
+                }
+                spec.endControlFlow();
+
                 spec.addStatement(
                         "var __bulkOperations = new $T<$T<$T>>()",
                         ArrayList.class,
                         WriteModel.class,
                         context.entityType());
 
-                spec.beginControlFlow(
-                        "for (var __entry : $L)", context.parametersInfo().firstName());
+                spec.beginControlFlow("for (var __entry : $L)", name);
                 spec.addStatement(
                         "__bulkOperations.add(new $T<>($L, $L))",
                         ReplaceOneModel.class,
@@ -158,12 +173,26 @@ public class MongoRepositoryGenerator extends RepositoryGenerator {
                         "__entry");
                 spec.endControlFlow();
 
+                // todo for all these casts, don't add it if it's considered redundant (compile warning)
+                if (context.typeUtils().isWholeNumberType(context.returnType())) {
+                    spec.addStatement(
+                            "return ($T) this.collection.bulkWrite(__bulkOperations).getModifiedCount()",
+                            context.countableReturnType());
+                    return;
+                }
                 spec.addStatement("this.collection.bulkWrite(__bulkOperations)");
             } else {
-                spec.addStatement(
-                        "this.collection.updateMany($L, $L)",
-                        createFilter(context.bySectionFactors()),
-                        createDocument(context.parametersInfo().remaining()));
+                var filter = createFilter(context.bySectionFactors());
+                var document = createUpdateDocument(context.parametersInfo().remaining());
+                if (context.typeUtils().isWholeNumberType(context.returnType())) {
+                    spec.addStatement(
+                            "return ($T) this.collection.updateMany($L, $L).getModifiedCount()",
+                            context.countableReturnType(),
+                            filter,
+                            document);
+                    return;
+                }
+                spec.addStatement("this.collection.updateMany($L, $L)", filter, document);
             }
 
             if (context.returnInfo().async()) {
@@ -179,7 +208,7 @@ public class MongoRepositoryGenerator extends RepositoryGenerator {
             boolean needsUpdatedCount = context.typeUtils().isType(Integer.class, context.returnType())
                     || context.typeUtils().isType(Boolean.class, context.returnType());
             if (needsUpdatedCount) {
-                spec.addStatement("int __count");
+                spec.addStatement("$T __count", context.countableReturnType());
             }
 
             // for now, it's only either: delete a (list of) entities, or deleteByAAndB
@@ -218,7 +247,8 @@ public class MongoRepositoryGenerator extends RepositoryGenerator {
             } else {
                 if (!context.hasProjection() && needsUpdatedCount) {
                     spec.addStatement(
-                            "__count = (int) this.collection.deleteMany($L).getDeletedCount()",
+                            "__count = ($T) this.collection.deleteMany($L).getDeletedCount()",
+                            context.countableReturnType(),
                             createFilter(context.bySectionFactors()));
                 } else {
                     var filter = createFilter(context.bySectionFactors());
@@ -228,6 +258,7 @@ public class MongoRepositoryGenerator extends RepositoryGenerator {
                     } else if (context.returnInfo().isSelfCollection() || needsUpdatedCount) {
                         spec.addStatement("var __session = this.mongoClient.startSession()");
                         spec.beginControlFlow("try");
+                        // todo add option to require majority
                         spec.addStatement("__session.startTransaction()");
 
                         spec.addStatement(
@@ -264,7 +295,7 @@ public class MongoRepositoryGenerator extends RepositoryGenerator {
                             if (context.typeUtils().isType(Boolean.class, context.returnType())) {
                                 spec.addStatement("return __deletedCount > 0");
                             } else {
-                                spec.addStatement("return (int) __deletedCount"); // todo make more flexible
+                                spec.addStatement("return ($T) __deletedCount", context.countableReturnType());
                             }
                         } else {
                             spec.addStatement("return __find");
@@ -449,13 +480,13 @@ public class MongoRepositoryGenerator extends RepositoryGenerator {
         }
 
         if (!ascending.isEmpty()) {
-            builder.add("$T.ascending($L)", ascending);
+            builder.add("$T.ascending($L)", Sorts.class, ascending);
         }
         if (!descending.isEmpty()) {
             if (!ascending.isEmpty()) {
                 builder.add(", ", descending);
             }
-            builder.add("$T.descending($L)", descending);
+            builder.add("$T.descending($L)", Sorts.class, descending);
         }
 
         return builder.add("))").build();
@@ -465,12 +496,15 @@ public class MongoRepositoryGenerator extends RepositoryGenerator {
      * Creates a document with every column appended. The key is the column name as string and the value is the column
      * name as parameter/variable
      */
-    private CodeBlock createDocument(List<ColumnInfo> columns) {
-        var builder = CodeBlock.builder().add("new $T()", Document.class);
+    private CodeBlock createUpdateDocument(List<ColumnInfo> columns) {
+        var builder = CodeBlock.builder().add("$T.combine(", Updates.class);
+        boolean first = true;
         for (ColumnInfo column : columns) {
-            builder.add(".append($S, $L)", column.name(), column.name());
+            if (!first) builder.add(", ");
+            first = false;
+            builder.add("$T.set($S, $L)", Updates.class, column.name(), column.name());
         }
-        return builder.build();
+        return builder.add(")").build();
     }
 
     private CodeBlock createFindFilter(QueryContext context) {

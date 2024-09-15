@@ -28,6 +28,11 @@ public interface DeleteRepository extends IRepository<TestEntity>, ReusableTestR
 
     int deleteFirstByB(String b);
 
+    int deleteFirstByBOrderByA(String b);
+
+    @Query("deleteFirstByBOrderByA")
+    TestEntity deleteFirstWithOrderReturning(String b);
+
     @Override
     void delete();
 }

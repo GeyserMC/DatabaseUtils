@@ -55,14 +55,11 @@ public class QueryContextCreator {
         this.info = info;
         this.typeUtils = typeUtils;
 
-        TypeMirror returnType;
+        TypeMirror returnType = element.getReturnType();
         boolean async = false;
         if (MoreTypes.isTypeOf(CompletableFuture.class, element.getReturnType())) {
             async = true;
-            returnType = typeUtils.toBoxedMirror(
-                    ((DeclaredType) element.getReturnType()).getTypeArguments().get(0));
-        } else {
-            returnType = typeUtils.toBoxedMirror(element.getReturnType());
+            returnType = ((DeclaredType) returnType).getTypeArguments().get(0);
         }
 
         this.returnType = returnType;
@@ -132,11 +129,7 @@ public class QueryContextCreator {
         }
 
         if (readResult.orderBySection() != null) {
-            // todo why is handledInputs increased here?
-            validateColumnNames(
-                    readResult.orderBySection().factors(),
-                    SectionType.ORDER_BY,
-                    ($, $$) -> handledInputs.incrementAndGet());
+            validateColumnNames(readResult.orderBySection().factors(), SectionType.ORDER_BY, null);
         }
 
         if (returnTypeInfo.isAnySelf() && !action.allowReturnAnySelfOrColumn()) {

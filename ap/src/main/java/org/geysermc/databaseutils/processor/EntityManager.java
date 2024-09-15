@@ -105,9 +105,7 @@ final class EntityManager {
             }
 
             for (int i = 0; i < parameters.size(); i++) {
-                // todo since we expose the parameters, we might have to box them everywhere to be sure
-                if (!typeUtils.isTypeWithBoxed(
-                        columns.get(i).asType(), parameters.get(i).asType())) {
+                if (!typeUtils.isType(columns.get(i).asType(), parameters.get(i).asType())) {
                     continue constructors;
                 }
             }

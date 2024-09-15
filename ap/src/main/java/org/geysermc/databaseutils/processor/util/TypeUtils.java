@@ -16,6 +16,7 @@ import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.Name;
 import javax.lang.model.element.TypeElement;
+import javax.lang.model.type.PrimitiveType;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Elements;
@@ -96,11 +97,14 @@ public record TypeUtils(Types typeUtils, Elements elementUtils) {
     }
 
     public boolean isType(TypeMirror expected, TypeMirror actual) {
-        return typeUtils.isSameType(typeUtils.erasure(expected), typeUtils.erasure(actual));
+        return isTypeExact(toBoxedMirror(typeUtils.erasure(expected)), toBoxedMirror(typeUtils.erasure(actual)));
     }
 
-    public boolean isTypeWithBoxed(TypeMirror expected, TypeMirror actual) {
-        return isType(toBoxedMirror(expected), toBoxedMirror(actual));
+    /**
+     * Compared to the normal isType methods this one doesn't erase and doesn't box the types
+     */
+    public boolean isTypeExact(TypeMirror expected, TypeMirror actual) {
+        return typeUtils.isSameType(expected, actual);
     }
 
     public static String packageNameFor(Name className) {
@@ -135,5 +139,12 @@ public record TypeUtils(Types typeUtils, Elements elementUtils) {
                 || isType(Short.class, mirror)
                 || isType(Integer.class, mirror)
                 || isType(Long.class, mirror);
+    }
+
+    public TypeMirror unboxType(TypeMirror mirror) {
+        if (mirror instanceof PrimitiveType) {
+            return mirror;
+        }
+        return typeUtils.unboxedType(mirror);
     }
 }
