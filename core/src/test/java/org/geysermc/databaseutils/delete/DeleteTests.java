@@ -5,10 +5,12 @@
  */
 package org.geysermc.databaseutils.delete;
 
+import static org.geysermc.databaseutils.util.AssertUtils.assertEqualsIgnoreOrder;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.List;
 import java.util.UUID;
 import java.util.stream.Stream;
 import org.geysermc.databaseutils.DatabaseType;
@@ -178,8 +180,35 @@ final class DeleteTests {
                     assertTrue(repository.existsByAAndB(2, "hello"));
                 },
                 DatabaseType.H2,
-                DatabaseType.MYSQL,
-                DatabaseType.ORACLE_DATABASE);
+                DatabaseType.MYSQL);
+        // see readme why those are excluded for now
+    }
+
+    @TestFactory
+    Stream<DynamicTest> deleteReturningList() {
+        return context.allTypesForBut(
+                DeleteRepository.class,
+                repository -> {
+                    repository.insert(new TestEntity(1, "hello", "steve!", null));
+                    repository.insert(new TestEntity(2, "hi", "world!", null));
+                    repository.insert(new TestEntity(0, "hello", "world!", null));
+
+                    var returning = repository.deleteReturningList("hello");
+
+                    // all dialects except OracleDB returns it in insertion order,
+                    // so since we support OracleDB we can't make order assumptions.
+                    assertEqualsIgnoreOrder(
+                            List.of(
+                                    new TestEntity(1, "hello", "steve!", null),
+                                    new TestEntity(0, "hello", "world!", null)),
+                            returning);
+
+                    assertTrue(repository.existsByAAndB(2, "hi"));
+                    assertFalse(repository.existsByAAndB(0, "hello"));
+                    assertFalse(repository.existsByAAndB(1, "hello"));
+                },
+                DatabaseType.H2,
+                DatabaseType.MYSQL);
         // see readme why those are excluded for now
     }
 

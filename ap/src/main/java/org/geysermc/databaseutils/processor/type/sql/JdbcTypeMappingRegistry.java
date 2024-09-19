@@ -13,8 +13,7 @@ import javax.lang.model.element.Name;
 
 public final class JdbcTypeMappingRegistry {
     private static final Map<String, String> MAPPINGS = new HashMap<>();
-    private static final Map<String, String> CONVERT_GET_FORMAT = new HashMap<>();
-    private static final Map<String, String> CONVERT_SET_FORMAT = new HashMap<>();
+    private static final Map<String, String> CONVERT_FORMAT = new HashMap<>();
 
     private JdbcTypeMappingRegistry() {}
 
@@ -26,15 +25,19 @@ public final class JdbcTypeMappingRegistry {
         return MAPPINGS.get(Byte[].class.getCanonicalName());
     }
 
+    public static String jdbcReadFor(Name typeName, String format) {
+        return CONVERT_FORMAT
+                .getOrDefault(String.valueOf(typeName), "%s")
+                .formatted(format.formatted("read" + jdbcTypeFor(typeName) + "()"));
+    }
+
     public static String jdbcGetFor(Name typeName, String format) {
         return format.formatted("get" + jdbcTypeFor(typeName) + "("
-                + CONVERT_GET_FORMAT
-                        .getOrDefault(String.valueOf(typeName), "%s")
-                        .formatted("$S") + ")");
+                + CONVERT_FORMAT.getOrDefault(String.valueOf(typeName), "%s").formatted("$S") + ")");
     }
 
     public static String jdbcSetFor(Name typeName, String format) {
-        return CONVERT_SET_FORMAT
+        return CONVERT_FORMAT
                 .getOrDefault(String.valueOf(typeName), "%s")
                 .formatted(format.formatted("set" + jdbcTypeFor(typeName)));
     }
@@ -49,18 +52,7 @@ public final class JdbcTypeMappingRegistry {
 
     private static void add(Class<?> type, String mapping, String convertBothFormat) {
         addMapping(type, mapping);
-        CONVERT_GET_FORMAT.put(type.getCanonicalName(), convertBothFormat);
-        CONVERT_SET_FORMAT.put(type.getCanonicalName(), convertBothFormat);
-    }
-
-    private static void add(Class<?> type, String mapping, String convertGetFormat, String convertSetFormat) {
-        addMapping(type, mapping);
-        if (convertGetFormat != null) {
-            CONVERT_GET_FORMAT.put(type.getCanonicalName(), convertGetFormat);
-        }
-        if (convertSetFormat != null) {
-            CONVERT_SET_FORMAT.put(type.getCanonicalName(), convertSetFormat);
-        }
+        CONVERT_FORMAT.put(type.getCanonicalName(), convertBothFormat);
     }
 
     static {

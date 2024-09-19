@@ -5,6 +5,7 @@
  */
 package org.geysermc.databaseutils.delete;
 
+import java.util.List;
 import org.geysermc.databaseutils.IRepository;
 import org.geysermc.databaseutils.ReusableTestRepository;
 import org.geysermc.databaseutils.entity.TestEntity;
@@ -23,6 +24,9 @@ public interface DeleteRepository extends IRepository<TestEntity>, ReusableTestR
 
     @Query("deleteByAAndB")
     TestEntity deleteReturning(int a, String b);
+
+    @Query("deleteByB")
+    List<TestEntity> deleteReturningList(String b);
 
     int deleteByB(String b);
 

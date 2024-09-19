@@ -19,7 +19,6 @@ public class QueryBuilder {
     private final StringBuilder endQuery = new StringBuilder();
     private final List<QueryBuilderColumn> columns = new ArrayList<>();
     private int parameterIndex = 0;
-    private boolean dialectDepending = false;
 
     public QueryBuilder(QueryContext queryContext) {
         this.queryContext = queryContext;
@@ -34,15 +33,6 @@ public class QueryBuilder {
 
     public List<QueryBuilderColumn> columns() {
         return columns;
-    }
-
-    public boolean dialectDepending() {
-        return dialectDepending;
-    }
-
-    public QueryBuilder dialectDepending(boolean dialectDepending) {
-        this.dialectDepending = dialectDepending;
-        return this;
     }
 
     public QueryBuilder add(String queryPart, BiFunction<QueryContext, QueryBuilder, String> function) {

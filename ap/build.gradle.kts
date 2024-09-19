@@ -1,9 +1,9 @@
 dependencies {
     implementation(projects.core)
-
     implementation(projects.databaseSql)
-
     implementation(projects.databaseMongo)
+
+    implementation(libs.oracle) // OracleTypes
 
     implementation(libs.javapoet)
     implementation(libs.auto.service)

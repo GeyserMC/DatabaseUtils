@@ -45,11 +45,9 @@ However not everything is the same across dialects.
 ### Missing functionality for specific dialects
 
 #### TestEntity deleteByAAndB(String, String)
-This currently doesn't work on MySQL (not MariaDB), H2 and Oracle Database.
-For MySQL and H2 this is caused by the lack of support for 'REPLACING' or a variant of it.
-For those two dialect we have to fetch a record first and then delete it (inside a transaction).
-For Oracle Database the reason is that unlike the other 'REPLACING' implementations this dialect
-does not accept a wildcard.
+This currently doesn't work on MySQL (not MariaDB) and H2.
+This is caused by the lack of support for 'REPLACING' or a variant of it.
+We have to fetch a record first and then delete it (inside a transaction).
 The current codebase is not flexible enough to do these wildly different behaviours per dialect, 
 but will be supported in the future.
 
@@ -57,6 +55,15 @@ but will be supported in the future.
 Anything with a limit projection in delete currently doesn't work for Oracle Database, PostgreSQL and SQLite.
 For SQLite this is a flag that can be enabled during compile, but it's disabled by default.
 For Oracle and Postgres delete with a limit doesn't exist.
+We have to fetch a record first and then delete it (inside a transaction).
+The current codebase is not flexible enough to do these wildly different behaviours per dialect,
+but will be supported in the future.
+
+#### any delete*OrderBy*()
+Anything with an order by in delete currently doesn't work for Oracle Database, SQL Server, H2 and SQLite.
+For SQLite this is a flag that can be enabled during compile, but it's disabled by default.
+For the others this functionality doesn't exist.
+We have to fetch a record first and then delete it (inside a transaction).
 The current codebase is not flexible enough to do these wildly different behaviours per dialect,
 but will be supported in the future.
 
@@ -86,3 +93,29 @@ And these are the exceptions:
 | Double    | SQL Server | float    |
 | Byte[]    | PostgreSQL | bytea    |
 | Byte[]    | SQLite     | varchar  |
+
+# Query syntax
+Assuming we have the following entity called TestEntity:
+
+| Name | Type   | Is Key? | 
+|------|--------|---------|
+| a    | int    | Yes     |
+| b    | String | Yes     |
+| c    | String | No      |
+| d    | UUID   | No      |
+
+## delete
+
+#### int/boolean delete(TestEntity) - delete single entity
+If you delete a single entity, it'll look at the 
+
+### TestEntity deleteByAAndB(a, b) - delete by key
+If you delete by the key then you know for certain that there can at most be only one match.
+
+### List<TestEntity> deleteByB(b) - delete by a non-unique column
+If you delete by a non-unique column everything matching that column is deleted.
+Note that for the returning collection that not every database type has a defined order. 
+
+### TestEntity deleteFirstByB(b) - delete by a non-unique column
+If you delete by a non-unique column you have to specify first if your return type is a single row.
+Only use this if any match is fine, because not every database type has a defined order.

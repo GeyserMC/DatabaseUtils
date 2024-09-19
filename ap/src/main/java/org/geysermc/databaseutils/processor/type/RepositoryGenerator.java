@@ -26,7 +26,9 @@ public abstract class RepositoryGenerator {
     protected TypeSpec.Builder typeSpec;
     protected boolean hasAsync;
     protected EntityInfo entityInfo;
+
     private String packageName;
+    private String className;
 
     protected RepositoryGenerator(DatabaseCategory category) {
         this.category = category;
@@ -49,7 +51,7 @@ public abstract class RepositoryGenerator {
             throw new IllegalStateException("Cannot reinitialize RepositoryGenerator");
         }
         this.packageName = TypeUtils.packageNameFor(superType.getQualifiedName());
-        var className = superType.getSimpleName() + category.upperCamelCaseName() + "Impl";
+        this.className = superType.getSimpleName() + category.upperCamelCaseName() + "Impl";
         this.typeSpec = TypeSpec.classBuilder(className)
                 .addSuperinterface(ParameterizedTypeName.get(superType.asType()))
                 .addModifiers(Modifier.PUBLIC, Modifier.FINAL);
@@ -58,6 +60,10 @@ public abstract class RepositoryGenerator {
 
     public String packageName() {
         return packageName;
+    }
+
+    public String className() {
+        return className;
     }
 
     public boolean hasAsync() {

@@ -6,12 +6,14 @@
 package org.geysermc.databaseutils.processor.query.type;
 
 import static org.geysermc.databaseutils.processor.util.CollectionUtils.join;
+import static org.geysermc.databaseutils.processor.util.CollectionUtils.map;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import javax.lang.model.element.ExecutableElement;
+import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeMirror;
 import org.geysermc.databaseutils.processor.action.Action;
@@ -70,6 +72,10 @@ public class ParametersTypeInfo {
 
     public CharSequence firstName() {
         return name(0);
+    }
+
+    public List<CharSequence> names() {
+        return map(element.getParameters(), VariableElement::getSimpleName);
     }
 
     public boolean hasParameters() {

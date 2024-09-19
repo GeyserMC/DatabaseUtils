@@ -5,6 +5,7 @@
  */
 package org.geysermc.databaseutils.processor.util;
 
+import java.lang.reflect.Array;
 import java.util.Collection;
 import java.util.List;
 import java.util.function.Function;
@@ -14,8 +15,21 @@ public class CollectionUtils {
         return items.stream().map(mapper).toList();
     }
 
+    @SuppressWarnings("unchecked")
+    public static <I, O> O[] map(I[] items, Function<I, O> mapper) {
+        O[] array = (O[]) Array.newInstance(items.getClass().getComponentType(), items.length);
+        for (int i = 0; i < items.length; i++) {
+            array[i] = mapper.apply(items[i]);
+        }
+        return array;
+    }
+
     public static <T> String mapAndJoin(Collection<T> items, Function<T, ?> mapper) {
         return join(map(items, mapper));
+    }
+
+    public static <T> String mapAndJoin(Collection<T> items, Function<T, ?> mapper, String delimiter) {
+        return join(map(items, mapper), delimiter);
     }
 
     public static String join(Collection<?> items, int offset) {
@@ -23,6 +37,10 @@ public class CollectionUtils {
     }
 
     public static String join(Collection<?> items) {
-        return String.join(", ", items.stream().map(Object::toString).toList());
+        return join(items, ", ");
+    }
+
+    public static String join(Collection<?> items, String delimiter) {
+        return String.join(delimiter, items.stream().map(Object::toString).toList());
     }
 }

@@ -33,6 +33,23 @@ class SqlDatabaseGenerated {
                         "c " + SqlTypeMappingRegistry.sqlTypeFor(String.class, dialect) + ',' +
                         "d " + SqlTypeMappingRegistry.sqlTypeFor(UUID.class, dialect) +
                         ")");
+                if (dialect == SqlDialect.ORACLE_DATABASE) {
+                    boolean rowExists = false;
+                    try (var rs = statement.executeQuery("SELECT COUNT(*) FROM USER_OBJECTS WHERE OBJECT_NAME = 'HELLO_ROW' AND STATUS = 'VALID'")) {
+                        if (rs.next()) {
+                            rowExists = rs.getInt(1) > 0;
+                        }
+                    }
+                    if (!rowExists) {
+                        statement.executeUpdate("CREATE TYPE hello_row AS OBJECT(" +
+                                "a " + SqlTypeMappingRegistry.sqlTypeFor(Integer.class, dialect) + ',' +
+                                "b " + SqlTypeMappingRegistry.sqlTypeFor(String.class, dialect) + ',' +
+                                "c " + SqlTypeMappingRegistry.sqlTypeFor(String.class, dialect) + ',' +
+                                "d " + SqlTypeMappingRegistry.sqlTypeFor(UUID.class, dialect) +
+                                ")");
+                        statement.executeUpdate("CREATE TYPE hello_table AS TABLE OF hello_row");
+                    }
+                }
             }
         }
     }

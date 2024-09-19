@@ -6,24 +6,34 @@
 package org.geysermc.databaseutils.processor.type.sql;
 
 import static org.geysermc.databaseutils.processor.type.sql.JdbcTypeMappingRegistry.jdbcGetFor;
+import static org.geysermc.databaseutils.processor.type.sql.JdbcTypeMappingRegistry.jdbcReadFor;
 import static org.geysermc.databaseutils.processor.type.sql.JdbcTypeMappingRegistry.jdbcSetFor;
+import static org.geysermc.databaseutils.processor.util.CollectionUtils.mapAndJoin;
 import static org.geysermc.databaseutils.processor.util.StringUtils.repeat;
 
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.CodeBlock;
 import com.squareup.javapoet.MethodSpec;
+import com.squareup.javapoet.TypeSpec;
 import com.zaxxer.hikari.HikariDataSource;
+import java.sql.CallableStatement;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Struct;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.stream.Collectors;
 import javax.lang.model.element.Modifier;
+import javax.lang.model.element.TypeElement;
+import oracle.jdbc.OracleTypes;
 import org.geysermc.databaseutils.DatabaseCategory;
 import org.geysermc.databaseutils.processor.info.ColumnInfo;
+import org.geysermc.databaseutils.processor.info.EntityInfo;
 import org.geysermc.databaseutils.processor.query.QueryContext;
 import org.geysermc.databaseutils.processor.query.section.by.keyword.EqualsKeyword;
 import org.geysermc.databaseutils.processor.query.section.by.keyword.LessThanKeyword;
@@ -40,15 +50,26 @@ import org.geysermc.databaseutils.processor.query.section.projection.keyword.Ski
 import org.geysermc.databaseutils.processor.query.section.projection.keyword.TopProjectionKeyword;
 import org.geysermc.databaseutils.processor.type.RepositoryGenerator;
 import org.geysermc.databaseutils.processor.type.sql.QueryBuilder.QueryBuilderColumn;
+import org.geysermc.databaseutils.processor.type.sql.repository.DialectClassManager;
+import org.geysermc.databaseutils.processor.type.sql.repository.DialectMethod;
+import org.geysermc.databaseutils.processor.type.sql.repository.DialectMethod.Identifier;
 import org.geysermc.databaseutils.processor.util.InvalidRepositoryException;
 import org.geysermc.databaseutils.processor.util.TypeUtils;
+import org.geysermc.databaseutils.sql.FlexibleSqlInput;
 import org.geysermc.databaseutils.sql.SqlDialect;
 
 public final class SqlRepositoryGenerator extends RepositoryGenerator {
     private static final int BATCH_SIZE = 500;
+    private DialectClassManager dialectManager;
 
     public SqlRepositoryGenerator() {
         super(DatabaseCategory.SQL);
+    }
+
+    @Override
+    public void init(TypeElement superType, EntityInfo entityInfo) {
+        super.init(superType, entityInfo);
+        dialectManager = new DialectClassManager(typeSpec, className());
     }
 
     @Override
@@ -58,6 +79,17 @@ public final class SqlRepositoryGenerator extends RepositoryGenerator {
 
         typeSpec.addField(SqlDialect.class, "dialect", Modifier.PRIVATE, Modifier.FINAL);
         builder.addStatement("this.dialect = database.dialect()");
+
+        dialectManager.onConstructorBuilder(builder);
+    }
+
+    @Override
+    public TypeSpec.Builder finish(Class<?> databaseClass) {
+        super.finish(databaseClass);
+        for (TypeSpec dialectImpl : dialectManager.finish()) {
+            typeSpec.addType(dialectImpl);
+        }
+        return typeSpec;
     }
 
     @Override
@@ -70,7 +102,7 @@ public final class SqlRepositoryGenerator extends RepositoryGenerator {
         } else if (context.hasParameters()) {
             builder.add("where %s", this::createWhereForKeys);
         }
-        executeAndReturn(spec, context, builder);
+        executeAndReturn(new DialectMethod(spec), context, builder);
     }
 
     @Override
@@ -81,7 +113,8 @@ public final class SqlRepositoryGenerator extends RepositoryGenerator {
         } else if (context.hasParameters()) {
             builder.add("where %s", this::createWhereForKeys);
         }
-        addExecuteQueryData(spec, context, builder, () -> spec.addStatement("return __result.next()"));
+        var method = new DialectMethod(spec);
+        addExecuteQueryData(method, context, builder, () -> method.addStatement("return __result.next()"));
     }
 
     @Override
@@ -93,7 +126,7 @@ public final class SqlRepositoryGenerator extends RepositoryGenerator {
         var builder = new QueryBuilder(context)
                 .addRaw("insert into %s (%s) values (%s)", context.tableName(), columnNames, columnParameters)
                 .addAll(context.columns());
-        addUpdateQueryData(spec, context, builder);
+        addUpdateQueryData(new DialectMethod(spec), context, builder);
     }
 
     @Override
@@ -107,7 +140,7 @@ public final class SqlRepositoryGenerator extends RepositoryGenerator {
         } else {
             builder.add("where %s", this::createWhereForKeys);
         }
-        addUpdateQueryData(spec, context, builder);
+        addUpdateQueryData(new DialectMethod(spec), context, builder);
     }
 
     @Override
@@ -120,62 +153,109 @@ public final class SqlRepositoryGenerator extends RepositoryGenerator {
         // https://dev.mysql.com/doc/refman/8.4/en/delete.html
         // https://mariadb.com/kb/en/delete/
 
+        // returning the deleted row(s) is not supported by: h2, mysql. Resulting in delete with a find subquery
+
         // order by is not supported by: oracledb, mssql, h2, sqlite (not enabled in xerial)
 
-        var builder = new QueryBuilder(context).addRaw("delete from %s", context.tableName());
+        // limit is not supported by: sqlite (not enabled), oracledb
+        // limit needs to be "top x" on mssql, needs to be "fetch next x rows" for h2
+
+        // truncate table is supported by all dialects but sqlite
+        // https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/TRUNCATE-TABLE.html
+        // https://learn.microsoft.com/en-us/sql/t-sql/statements/truncate-table-transact-sql?view=sql-server-ver16
+        // https://www.sqlite.org/lang_delete.html#the_truncate_optimization (basically delete from %s equals truncate)
+        // https://h2database.com/html/commands.html#truncate_table
+        // https://dev.mysql.com/doc/refman/8.4/en/truncate-table.html
+        // https://mariadb.com/kb/en/truncate-table/
+        // Only regular data tables without foreign key constraints can be truncated (source: H2, MySQL docs)
+        // todo keep in mind that this will ofc. also reset the AUTO_INCREMENT counter
+        // make it not support int/bool return types, because that'd require an additional select count(*)
+
+        // todo add something that can show you which permissions you need from the db
+
+        var query = new QueryBuilder(context).addRaw("delete from %s", context.tableName());
         if (context.hasBySection()) {
-            builder.add("where %s", this::createWhereForFactors);
+            query.add("where %s", this::createWhereForFactors);
         } else if (context.hasParameters()) {
-            builder.add("where %s", this::createWhereForKeys);
+            query.add("where %s", this::createWhereForKeys);
         }
         // todo use 'truncate table' for dialects supporting it
 
         if (context.hasProjection()) {
             var limit = context.projection().limit();
             if (limit != -1) {
-                builder.addRaw("limit " + limit);
+                query.addRaw("limit " + limit);
             }
         }
 
-        boolean notSelfToSelf =
+        boolean needsReturning =
                 !context.parametersInfo().isSelf() && context.returnInfo().isAnySelf();
-        if (!notSelfToSelf) {
-            addUpdateQueryData(spec, context, builder);
+        if (!needsReturning) {
+            addUpdateQueryData(new DialectMethod(spec), context, query);
             return;
         }
 
-        // todo if returning is needed and a projection column name is given, only request that specific column
-        spec.addStatement("String __sql");
-        spec.beginControlFlow(
-                "if (this.dialect == $T.POSTGRESQL || this.dialect == $T.SQLITE || this.dialect == $T.MARIADB)",
-                SqlDialect.class,
-                SqlDialect.class,
-                SqlDialect.class);
-        spec.addStatement("__sql = $S", builder.copy().addEndRaw("returning *"));
-        spec.nextControlFlow("else if (this.dialect == $T.ORACLE_DATABASE)", SqlDialect.class);
-        // todo this needs prepareStatement(__sql, new String[] {columnNames})
-        // var oracleDbSqlBuilder = builder.copy()
-        //         .addEndRaw(
-        //                 "returning %s into %s",
-        //                 mapAndJoin(context.entityInfo().columns(), ColumnInfo::name),
-        //                 join(repeat("?", context.columns().size())));
-        // spec.addStatement("__sql = $S", oracleDbSqlBuilder);
-        spec.addStatement("throw new $T($S)", IllegalStateException.class, "This behaviour is not yet implemented!");
-        spec.nextControlFlow("else if (this.dialect == $T.SQL_SERVER)", SqlDialect.class);
-        // https://learn.microsoft.com/en-us/sql/t-sql/queries/output-clause-transact-sql?view=sql-server-ver16
-        spec.addStatement("__sql = $S", builder.copy().addRawBefore("where", "output deleted.*"));
-        spec.nextControlFlow(
-                "else if (this.dialect == $T.H2 || this.dialect == $T.MYSQL)", SqlDialect.class, SqlDialect.class);
-        // todo implement this using two separate queries with a transaction
-        spec.addStatement("throw new $T($S)", IllegalStateException.class, "This behaviour is not yet implemented!");
-        spec.nextControlFlow("else");
-        spec.addStatement("throw new $T($S + dialect)", IllegalStateException.class, "Unexpected dialect ");
-        spec.endControlFlow();
+        var manager = dialectManager.create(context, spec);
+        // for Postgres, SQLite and MariaDB
+        manager.createDefault(builder -> {
+            // todo if returning is needed and a projection column name is given, only request that specific column
+            executeAndReturn(builder, context, query.copy().addEndRaw("returning *"));
+        });
 
-        executeAndReturn(spec, context, builder.dialectDepending(true));
+        manager.create(SqlDialect.SQL_SERVER, builder -> {
+            // https://learn.microsoft.com/en-us/sql/t-sql/queries/output-clause-transact-sql?view=sql-server-ver16
+            executeAndReturn(builder, context, query.copy().addRawBefore("where", "output deleted.*"));
+        });
+
+        manager.create(SqlDialect.ORACLE_DATABASE, builder -> {
+            boolean bulk = context.returnInfo().isCollection();
+            String into = bulk ? "bulk collect into" : "into";
+            var oracleDbSqlBuilder = query.copy()
+                    .addEndRaw(
+                            "returning %s_row(%s) %s ?",
+                            context.tableName(), mapAndJoin(context.entityInfo().columns(), ColumnInfo::name), into);
+
+            addBySectionData(builder, context, oracleDbSqlBuilder, () -> {
+                int set = query.columns().size() + 1;
+                // has to be uppercase, in OracleDB everything is in caps by default.
+                // But for the out parameter type it's not automatically converted to caps.
+                if (bulk) {
+                    builder.addStatement(
+                            "__statement.registerOutParameter($L, $L, $S)",
+                            set,
+                            OracleTypes.ARRAY,
+                            (context.tableName() + "_table").toUpperCase(Locale.ROOT));
+                } else {
+                    builder.addStatement(
+                            "__statement.registerOutParameter($L, $L, $S)",
+                            set,
+                            OracleTypes.STRUCT,
+                            (context.tableName() + "_row").toUpperCase(Locale.ROOT));
+                }
+                builder.addStatement("__statement.execute()");
+                if (bulk) {
+                    builder.addStatement(
+                            "var __result = ($T[]) __statement.getArray($L).getArray()", Object.class, set);
+                } else {
+                    builder.addStatement("var __result = __statement.getObject($L)", set);
+                }
+                readStructResult(builder, context);
+            });
+
+            // need to wrap it in a BEGIN END because otherwise jdbc expects a ResultSet
+            builder.replaceBeginControlFlow(
+                    Identifier.PREPARE_STATEMENT,
+                    "try ($T __statement = __connection.prepareCall($S))",
+                    CallableStatement.class,
+                    "BEGIN " + oracleDbSqlBuilder + "; END;");
+        });
+
+        manager.create(List.of(SqlDialect.H2, SqlDialect.MYSQL), builder -> {
+            builder.setThrow(IllegalStateException.class, "This behaviour is not yet implemented!");
+        });
     }
 
-    private void executeAndReturn(MethodSpec.Builder spec, QueryContext context, QueryBuilder builder) {
+    private void executeAndReturn(DialectMethod spec, QueryContext context, QueryBuilder builder) {
         addExecuteQueryData(spec, context, builder, () -> {
             if (context.returnInfo().isCollection()) {
                 spec.addStatement(
@@ -245,8 +325,68 @@ public final class SqlRepositoryGenerator extends RepositoryGenerator {
         });
     }
 
-    private void addExecuteQueryData(
-            MethodSpec.Builder spec, QueryContext context, QueryBuilder builder, Runnable content) {
+    private void readStructResult(DialectMethod spec, QueryContext context) {
+        // todo see if we can remove the common bits from this and executeAndReturn and make it separate methods
+        if (context.returnInfo().isCollection()) {
+            spec.addStatement(
+                    "$T __responses = new $T<>()",
+                    context.returnType(),
+                    context.typeUtils().collectionImplementationFor(context.returnType()));
+            spec.beginControlFlow("for (var __item : __result)");
+            spec.addStatement(
+                    "var __data = new $T((($T) __item).getAttributes())", FlexibleSqlInput.class, Struct.class);
+        } else {
+            spec.beginControlFlow("if (__result == null)");
+            spec.addStatement("return null");
+            spec.endControlFlow();
+            spec.addStatement(
+                    "var __data = new $T((($T) __result).getAttributes())", FlexibleSqlInput.class, Struct.class);
+        }
+
+        if (context.hasProjectionColumnName()) {
+            var column = context.projectionColumnInfo();
+
+            var block = CodeBlock.builder();
+            block.add("__responses.add(");
+
+            var format = jdbcReadFor(column.typeName(), "__data.%s");
+            if (TypeUtils.needsTypeCodec(column.typeName())) {
+                format = CodeBlock.of("this.__$L.decode($L)", column.name(), format)
+                        .toString();
+            }
+
+            block.add("%s".formatted(format), column.name());
+
+            block.add(")");
+            spec.addStatement(block.build());
+            spec.endControlFlow();
+            spec.addStatement("return __responses");
+            return;
+        }
+
+        var arguments = new ArrayList<String>();
+        for (ColumnInfo column : context.columns()) {
+            var format = jdbcReadFor(column.typeName(), "__data.%s");
+            if (TypeUtils.needsTypeCodec(column.typeName())) {
+                format = CodeBlock.of("this.__$L.decode($L)", column.name(), format)
+                        .toString();
+            }
+
+            spec.addStatement("$T _$L = $L", column.asType(), column.name(), format);
+            arguments.add("_" + column.name());
+        }
+
+        if (context.returnInfo().isCollection()) {
+            spec.addStatement(
+                    "__responses.add(new $T($L))", ClassName.get(context.entityType()), String.join(", ", arguments));
+            spec.endControlFlow();
+            spec.addStatement("return __responses");
+        } else {
+            spec.addStatement("return new $T($L)", ClassName.get(context.entityType()), String.join(", ", arguments));
+        }
+    }
+
+    private void addExecuteQueryData(DialectMethod spec, QueryContext context, QueryBuilder builder, Runnable content) {
         addBySectionData(spec, context, builder, () -> {
             spec.beginControlFlow("try ($T __result = __statement.executeQuery())", ResultSet.class);
             content.run();
@@ -254,7 +394,7 @@ public final class SqlRepositoryGenerator extends RepositoryGenerator {
         });
     }
 
-    private void addUpdateQueryData(MethodSpec.Builder spec, QueryContext context, QueryBuilder builder) {
+    private void addUpdateQueryData(DialectMethod spec, QueryContext context, QueryBuilder builder) {
         addBySectionData(spec, context, builder, () -> {
             if (!context.parametersInfo().isSelfCollection()) {
                 if (context.typeUtils().isType(Integer.class, context.returnType())) {
@@ -288,8 +428,7 @@ public final class SqlRepositoryGenerator extends RepositoryGenerator {
         });
     }
 
-    private void addBySectionData(
-            MethodSpec.Builder spec, QueryContext context, QueryBuilder builder, Runnable execute) {
+    private void addBySectionData(DialectMethod spec, QueryContext context, QueryBuilder builder, Runnable execute) {
         wrapInCompletableFuture(spec, context.returnInfo().async(), () -> {
             spec.beginControlFlow("try ($T __connection = this.dataSource.getConnection())", Connection.class);
 
@@ -298,9 +437,10 @@ public final class SqlRepositoryGenerator extends RepositoryGenerator {
             }
 
             spec.beginControlFlow(
-                    "try ($T __statement = __connection.prepareStatement($L))",
+                    Identifier.PREPARE_STATEMENT,
+                    "try ($T __statement = __connection.prepareStatement($S))",
                     PreparedStatement.class,
-                    builder.dialectDepending() ? "__sql" : '"' + builder.query() + '"');
+                    builder.query());
 
             CharSequence parameterName = "";
             if (context.hasParameters()) {
@@ -362,10 +502,14 @@ public final class SqlRepositoryGenerator extends RepositoryGenerator {
             spec.addStatement("throw new $T($S, __exception)", CompletionException.class, "Unexpected error occurred");
             spec.endControlFlow();
         });
-        typeSpec.addMethod(spec.build());
+
+        // todo remove
+        if (spec.shouldAdd()) {
+            typeSpec.addMethod(spec.build());
+        }
     }
 
-    private void executeBatchAndUpdateUpdateCount(MethodSpec.Builder spec, boolean needsUpdatedCount) {
+    private void executeBatchAndUpdateUpdateCount(DialectMethod spec, boolean needsUpdatedCount) {
         if (!needsUpdatedCount) {
             spec.addStatement("__statement.executeBatch()");
             return;
@@ -380,6 +524,18 @@ public final class SqlRepositoryGenerator extends RepositoryGenerator {
         spec.endControlFlow();
 
         spec.endControlFlow();
+    }
+
+    private void wrapInCompletableFuture(DialectMethod builder, boolean async, Runnable content) {
+        hasAsync |= async;
+
+        if (async) {
+            builder.beginControlFlow("return $T.supplyAsync(() ->", CompletableFuture.class);
+        }
+        content.run();
+        if (async) {
+            builder.endControlFlow(", this.database.executorService())");
+        }
     }
 
     private String createSetFor(QueryContext context, QueryBuilder builder) {
