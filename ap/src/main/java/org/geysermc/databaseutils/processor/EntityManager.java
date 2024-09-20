@@ -120,6 +120,9 @@ final class EntityManager {
 
         if (!keys.isEmpty()) {
             indexes.add(new IndexInfo("", keys.toArray(new CharSequence[0]), true));
+        } else {
+            // todo just make every column a key
+            throw new IllegalStateException("Expected entity to have at least one field marked as key");
         }
 
         var entityInfo = new EntityInfo(tableName, type, columns, indexes, keys);

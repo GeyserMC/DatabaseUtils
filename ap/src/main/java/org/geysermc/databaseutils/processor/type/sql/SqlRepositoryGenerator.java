@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
@@ -257,119 +258,90 @@ public final class SqlRepositoryGenerator extends RepositoryGenerator {
 
     private void executeAndReturn(DialectMethod spec, QueryContext context, QueryBuilder builder) {
         addExecuteQueryData(spec, context, builder, () -> {
-            if (context.returnInfo().isCollection()) {
-                spec.addStatement(
-                        "$T __responses = new $T<>()",
-                        context.returnType(),
-                        context.typeUtils().collectionImplementationFor(context.returnType()));
-                spec.beginControlFlow("while (__result.next())");
-            } else {
-                spec.beginControlFlow("if (!__result.next())");
-                spec.addStatement("return null");
-                spec.endControlFlow();
-            }
-
-            if (context.hasProjectionColumnName()) {
-                var column = context.projectionColumnInfo();
-
-                var block = CodeBlock.builder();
-
-                if (context.returnInfo().isCollection()) {
-                    block.add("__responses.add(");
-                } else {
-                    block.add("return ");
-                }
-
-                var getFormat = jdbcGetFor(column.typeName(), "__result.%s");
-                if (TypeUtils.needsTypeCodec(column.typeName())) {
-                    getFormat = CodeBlock.of("this.__$L.decode($L)", column.name(), getFormat)
-                            .toString();
-                }
-
-                block.add("%s".formatted(getFormat), column.name());
-
-                if (context.returnInfo().isCollection()) {
-                    block.add(")");
-                    spec.addStatement(block.build());
-                    spec.endControlFlow();
-                    spec.addStatement("return __responses");
-                } else {
-                    spec.addStatement(block.build());
-                }
-                return;
-            }
-
-            var arguments = new ArrayList<String>();
-            for (ColumnInfo column : context.columns()) {
-                var getFormat = jdbcGetFor(column.typeName(), "__result.%s");
-                if (TypeUtils.needsTypeCodec(column.typeName())) {
-                    getFormat = CodeBlock.of("this.__$L.decode($L)", column.name(), getFormat)
-                            .toString();
-                }
-
-                spec.addStatement("$T _$L = %s".formatted(getFormat), column.asType(), column.name(), column.name());
-                arguments.add("_" + column.name());
-            }
-
-            if (context.returnInfo().isCollection()) {
-                spec.addStatement(
-                        "__responses.add(new $T($L))",
-                        ClassName.get(context.entityType()),
-                        String.join(", ", arguments));
-                spec.endControlFlow();
-                spec.addStatement("return __responses");
-            } else {
-                spec.addStatement(
-                        "return new $T($L)", ClassName.get(context.entityType()), String.join(", ", arguments));
-            }
+            readResultBase(
+                    spec,
+                    context,
+                    () -> {
+                        if (context.returnInfo().isCollection()) {
+                            spec.beginControlFlow("while (__result.next())");
+                        } else {
+                            spec.beginControlFlow("if (!__result.next())");
+                            spec.addStatement("return null");
+                            spec.endControlFlow();
+                        }
+                    },
+                    (column) -> jdbcGetFor(column.typeName(), "__result.%s", column.name()));
         });
     }
 
     private void readStructResult(DialectMethod spec, QueryContext context) {
-        // todo see if we can remove the common bits from this and executeAndReturn and make it separate methods
+        readResultBase(
+                spec,
+                context,
+                () -> {
+                    if (context.returnInfo().isCollection()) {
+                        spec.beginControlFlow("for (var __item : __result)");
+                        spec.addStatement(
+                                "var __data = new $T((($T) __item).getAttributes())",
+                                FlexibleSqlInput.class,
+                                Struct.class);
+                    } else {
+                        spec.beginControlFlow("if (__result == null)");
+                        spec.addStatement("return null");
+                        spec.endControlFlow();
+                        spec.addStatement(
+                                "var __data = new $T((($T) __result).getAttributes())",
+                                FlexibleSqlInput.class,
+                                Struct.class);
+                    }
+                },
+                column -> jdbcReadFor(column.typeName(), "__data.%s"));
+    }
+
+    private void readResultBase(
+            DialectMethod spec, QueryContext context, Runnable initCode, Function<ColumnInfo, String> jdbcBaseFormat) {
         if (context.returnInfo().isCollection()) {
             spec.addStatement(
                     "$T __responses = new $T<>()",
                     context.returnType(),
                     context.typeUtils().collectionImplementationFor(context.returnType()));
-            spec.beginControlFlow("for (var __item : __result)");
-            spec.addStatement(
-                    "var __data = new $T((($T) __item).getAttributes())", FlexibleSqlInput.class, Struct.class);
-        } else {
-            spec.beginControlFlow("if (__result == null)");
-            spec.addStatement("return null");
-            spec.endControlFlow();
-            spec.addStatement(
-                    "var __data = new $T((($T) __result).getAttributes())", FlexibleSqlInput.class, Struct.class);
         }
+
+        initCode.run();
 
         if (context.hasProjectionColumnName()) {
             var column = context.projectionColumnInfo();
 
             var block = CodeBlock.builder();
-            block.add("__responses.add(");
 
-            var format = jdbcReadFor(column.typeName(), "__data.%s");
-            if (TypeUtils.needsTypeCodec(column.typeName())) {
-                format = CodeBlock.of("this.__$L.decode($L)", column.name(), format)
-                        .toString();
+            if (context.returnInfo().isCollection()) {
+                block.add("__responses.add(");
+            } else {
+                block.add("return ");
             }
 
-            block.add("%s".formatted(format), column.name());
+            var format = jdbcBaseFormat.apply(column);
+            if (TypeUtils.needsTypeCodec(column.typeName())) {
+                format = "this.__%s.decode(%s)".formatted(column.name(), format);
+            }
+            block.add(format);
 
-            block.add(")");
-            spec.addStatement(block.build());
-            spec.endControlFlow();
-            spec.addStatement("return __responses");
+            if (context.returnInfo().isCollection()) {
+                block.add(")");
+                spec.addStatement(block.build());
+                spec.endControlFlow();
+                spec.addStatement("return __responses");
+            } else {
+                spec.addStatement(block.build());
+            }
             return;
         }
 
         var arguments = new ArrayList<String>();
         for (ColumnInfo column : context.columns()) {
-            var format = jdbcReadFor(column.typeName(), "__data.%s");
+            var format = jdbcBaseFormat.apply(column);
             if (TypeUtils.needsTypeCodec(column.typeName())) {
-                format = CodeBlock.of("this.__$L.decode($L)", column.name(), format)
-                        .toString();
+                format = "this.__%s.decode(%s)".formatted(column.name(), format);
             }
 
             spec.addStatement("$T _$L = $L", column.asType(), column.name(), format);
@@ -473,7 +445,7 @@ public final class SqlRepositoryGenerator extends RepositoryGenerator {
                             .toString();
                 }
                 // jdbc index starts at 1
-                spec.addStatement(jdbcSetFor(columnInfo.typeName(), "__statement.%s($L, $L)"), ++variableIndex, input);
+                spec.addStatement(jdbcSetFor(columnInfo.typeName(), "__statement.%s", ++variableIndex, input));
             }
 
             if (context.parametersInfo().isSelfCollection()) {
