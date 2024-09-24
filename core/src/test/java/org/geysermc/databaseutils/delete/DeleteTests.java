@@ -133,13 +133,20 @@ final class DeleteTests {
                     repository.insert(new TestEntity(0, "hello", "world!", null));
 
                     assertEquals(1, repository.deleteFirstByB("hello"));
-                    assertFalse(repository.existsByAAndB(1, "hello"));
+
+                    // depending on the dialect either the first inserted item is deleted or
+                    // the one with the lowest index
+                    if (repository.existsByAAndB(1, "hello")) {
+                        assertFalse(repository.existsByAAndB(0, "hello"));
+                    } else {
+                        assertTrue(repository.existsByAAndB(0, "hello"));
+                    }
                     assertTrue(repository.existsByAAndB(2, "hello"));
-                    assertTrue(repository.existsByAAndB(0, "hello"));
                 },
                 DatabaseType.ORACLE_DATABASE,
                 DatabaseType.POSTGRESQL,
-                DatabaseType.SQLITE);
+                DatabaseType.SQLITE,
+                DatabaseType.SQL_SERVER);
         // delete limit is a flag that needs to be enabled during compiling on sqlite, and on Oracle and Postgres it
         // doesn't exist. So we have to work around this in the future by doing a subquery
     }
@@ -235,6 +242,7 @@ final class DeleteTests {
                 DatabaseType.H2,
                 DatabaseType.MYSQL,
                 DatabaseType.MONGODB,
-                DatabaseType.MARIADB);
+                DatabaseType.MARIADB,
+                DatabaseType.SQL_SERVER);
     }
 }

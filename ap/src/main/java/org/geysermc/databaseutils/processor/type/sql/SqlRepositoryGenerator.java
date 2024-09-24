@@ -185,6 +185,7 @@ public final class SqlRepositoryGenerator extends RepositoryGenerator {
         if (context.hasProjection()) {
             var limit = context.projection().limit();
             if (limit != -1) {
+                // todo is top for mssql
                 query.addRaw("limit " + limit);
             }
         }

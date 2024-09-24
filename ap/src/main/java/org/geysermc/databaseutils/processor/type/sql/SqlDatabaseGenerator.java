@@ -15,6 +15,8 @@ import java.util.Locale;
 import org.geysermc.databaseutils.DatabaseCategory;
 import org.geysermc.databaseutils.processor.info.ColumnInfo;
 import org.geysermc.databaseutils.processor.info.EntityInfo;
+import org.geysermc.databaseutils.processor.info.IndexInfo;
+import org.geysermc.databaseutils.processor.info.IndexInfo.IndexType;
 import org.geysermc.databaseutils.processor.type.DatabaseGenerator;
 import org.geysermc.databaseutils.sql.SqlDatabase;
 import org.geysermc.databaseutils.sql.SqlDialect;
@@ -39,9 +41,19 @@ public class SqlDatabaseGenerator extends DatabaseGenerator {
         method.beginControlFlow("try ($T statement = connection.createStatement())", Statement.class);
 
         for (EntityInfo entity : entities) {
-            method.addStatement("statement.executeUpdate($L)", createEntityQuery(entity));
+            method.beginControlFlow("if (dialect == $T.$L)", SqlDialect.class, SqlDialect.SQL_SERVER);
+            method.addStatement(
+                    "statement.executeUpdate($S + $L + $S)",
+                    "IF OBJECT_ID(N'" + entity.name() + "', N'U') IS NULL BEGIN ",
+                    createEntityQuery(entity, false),
+                    " END");
+            method.nextControlFlow("else");
+
+            method.addStatement("statement.executeUpdate($L)", createEntityQuery(entity, true));
             method.beginControlFlow("if (dialect == $T.$L)", SqlDialect.class, SqlDialect.ORACLE_DATABASE);
             createRowTypes(entity, method);
+            method.endControlFlow();
+
             method.endControlFlow();
         }
 
@@ -49,14 +61,34 @@ public class SqlDatabaseGenerator extends DatabaseGenerator {
         method.endControlFlow();
     }
 
-    private CodeBlock createEntityQuery(EntityInfo entity) {
-        // https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/Data-Types.html
-        // https://docs.oracle.com/en/database/oracle/oracle-database/23/gmswn/database-gateway-sqlserver-data-type-conversion.html
+    private CodeBlock createEntityQuery(EntityInfo entity, boolean ifNotExists) {
+        // todo primary keys don't allow null values (excluding SQLite due to a legacy bug) - check for null
+        // PRIMARY KEY & UNIQUE don't need an index name, INDEX does.
+
+        // https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/CREATE-TABLE.html
+        // https://www.postgresql.org/docs/16/sql-createtable.html
+        // https://www.sqlite.org/lang_createtable.html
+        // https://dev.mysql.com/doc/refman/8.4/en/create-table.html
+        // https://mariadb.com/kb/en/create-table/
+        // https://learn.microsoft.com/en-us/sql/t-sql/statements/create-table-transact-sql?view=sql-server-ver16
+        // http://h2database.com/html/commands.html#create_table
 
         var builder = CodeBlock.builder();
-        // todo indexes are not added atm
-        builder.add("\"CREATE TABLE IF NOT EXISTS $L (\" +\n", entity.name());
+        builder.add("\"CREATE TABLE $L$L (\" +\n", ifNotExists ? "IF NOT EXISTS " : "", entity.name());
         createEntityQueryBody(entity, builder);
+
+        // todo normal (non-primary & non-unique) indexes aren't added atm
+        for (IndexInfo index : entity.indexes()) {
+            if (index.type() == IndexType.NORMAL) {
+                continue;
+            }
+            builder.add("+ ',' +\n");
+            builder.add(
+                    "\"$L ($L)\" ",
+                    index.type() == IndexType.PRIMARY ? "PRIMARY KEY" : "UNIQUE",
+                    String.join(", ", index.columns()));
+        }
+
         builder.add("+\n\")\"");
         return builder.build();
     }
@@ -96,10 +128,11 @@ public class SqlDatabaseGenerator extends DatabaseGenerator {
             }
 
             builder.add(
-                    "\"$L \" + $T.sqlTypeFor($T.class, dialect) ",
+                    "\"$L \" + $T.sqlTypeFor($T.class, dialect, $L) ",
                     column.name(),
                     SqlTypeMappingRegistry.class,
-                    column.asType());
+                    column.asType(),
+                    column.maxLength());
         }
     }
 }

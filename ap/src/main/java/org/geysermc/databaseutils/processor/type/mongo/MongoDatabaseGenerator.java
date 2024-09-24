@@ -69,6 +69,10 @@ public class MongoDatabaseGenerator extends DatabaseGenerator {
                 Document.class,
                 entity.name());
 
+        // todo make some magic to always use _id for a composite key,
+        // without adding additional fields for those columns.
+        // because the current approach breaks for MongoDB clusters.
+
         entity.indexes().forEach(index -> method.addStatement("collection.createIndex($L)", createIndex(index)));
 
         method.endControlFlow();

@@ -9,6 +9,7 @@ currently examples can be found in the tests of the AP module and the tests of t
   - support adding every variable of the entity as parameter
 - add `upsert` which either inserts the entity if it's not present or updates the already existing entity
 - adding migrations
+- add null and non-null support
 - and plenty more
 
 # Supported types
@@ -52,7 +53,8 @@ The current codebase is not flexible enough to do these wildly different behavio
 but will be supported in the future.
 
 #### any deleteFirst() and any deleteTop*()
-Anything with a limit projection in delete currently doesn't work for Oracle Database, PostgreSQL and SQLite.
+Anything with a limit projection in delete currently doesn't work for Oracle Database, PostgreSQL, SQLite and SQL Server.
+For SQL Server it's TOP instead of LIMIT.
 For SQLite this is a flag that can be enabled during compile, but it's disabled by default.
 For Oracle and Postgres delete with a limit doesn't exist.
 We have to fetch a record first and then delete it (inside a transaction).
@@ -74,25 +76,32 @@ These are the base type conversions:
 | Java Type | SQL type         | Reason / remarks                                                |
 |-----------|------------------|-----------------------------------------------------------------|
 | Boolean   | boolean          | More platforms support boolean than tinyint / bit               |
-| Byte      | smallint         | SQL Server's tinyint is unsigned and PostgresSQL has no tinyint |
+| Byte      | tinyint          | SQL Server's tinyint is unsigned and PostgresSQL has no tinyint |
 | Short     | smallint         | -                                                               |
-| Char      | smallint         | Basically the same as short                                     |
+| Char      | int              | Unlike short, char is unsigned                                  |
 | Integer   | int              | -                                                               |
 | Long      | bigint           | -                                                               |
-| Float     | real             | Some dialects map this as a double precision type               |
+| Float     | real             | MySQL and MariaDB map this as a double precision type           |
 | Double    | double precision | -                                                               |
-| String    | varchar          | -                                                               |
+| String    | varchar          | All dialects support varchar, but it's deprecated on OracleDB   |
 | Byte[]    | varbinary        | Most dialects support varbinary                                 |
 
 And these are the exceptions:
 
-| Java Type | Dialect    | SQL Type |
-|-----------|------------|----------|
-| Boolean   | SQLite     | int      |
-| Boolean   | SQL Server | bit      |
-| Double    | SQL Server | float    |
-| Byte[]    | PostgreSQL | bytea    |
-| Byte[]    | SQLite     | varchar  |
+| Java Type | Dialect    | SQL Type          |
+|-----------|------------|-------------------|
+| Boolean   | SQLite     | int               |
+| Boolean   | SQL Server | bit               |
+| Byte      | PostgreSQL | smallint          |
+| Byte      | SQL Server | smallint          |
+| Char      | MariaDB    | smallint unsigned |
+| Char      | MySQL      | smallint unsigned |
+| Char      | OracleDB   | number(5)         |
+| Double    | SQL Server | float             |
+| String    | OracleDB   | varchar2          |
+| Byte[]    | OracleDB   | raw               |
+| Byte[]    | PostgreSQL | bytea             |
+| Byte[]    | SQLite     | blob              |
 
 # Query syntax
 Assuming we have the following entity called TestEntity:

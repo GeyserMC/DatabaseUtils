@@ -26,6 +26,8 @@ import org.geysermc.databaseutils.meta.Key;
 import org.geysermc.databaseutils.processor.info.ColumnInfo;
 import org.geysermc.databaseutils.processor.info.EntityInfo;
 import org.geysermc.databaseutils.processor.info.IndexInfo;
+import org.geysermc.databaseutils.processor.info.IndexInfo.IndexType;
+import org.geysermc.databaseutils.processor.type.LimitsEnforcer;
 import org.geysermc.databaseutils.processor.util.TypeUtils;
 
 final class EntityManager {
@@ -41,6 +43,9 @@ final class EntityManager {
     }
 
     EntityInfo processEntity(TypeMirror typeMirror) {
+        // todo technically all those meta annotation classes can be moved a separate module you only need during
+        // compile time, instead of including the annotation definitions in runtime as well
+
         var type = MoreTypes.asTypeElement(typeMirror);
 
         var cached = entityInfoByClassName.get(type.getQualifiedName());
@@ -64,7 +69,7 @@ final class EntityManager {
         var columns = new ArrayList<ColumnInfo>();
 
         Arrays.stream(type.getAnnotationsByType(Index.class))
-                .map(index -> new IndexInfo(index.name(), index.columns(), index.unique()))
+                .map(index -> new IndexInfo(index.name(), index.columns(), index.unique(), index.direction()))
                 .forEach(indexes::add);
 
         for (Element element : type.getEnclosedElements()) {
@@ -84,7 +89,7 @@ final class EntityManager {
                 continue;
             }
 
-            columns.add(new ColumnInfo(field.getSimpleName(), typeUtils.toBoxedTypeElement(field.asType())));
+            columns.add(new ColumnInfo(field.getSimpleName(), typeUtils.toBoxedTypeElement(field.asType()), field));
 
             if (hasAnnotation(field, Key.class)) {
                 keys.add(field.getSimpleName());
@@ -119,13 +124,16 @@ final class EntityManager {
         }
 
         if (!keys.isEmpty()) {
-            indexes.add(new IndexInfo("", keys.toArray(new CharSequence[0]), true));
+            indexes.add(new IndexInfo("", keys.toArray(new CharSequence[0]), IndexType.PRIMARY));
         } else {
             // todo just make every column a key
             throw new IllegalStateException("Expected entity to have at least one field marked as key");
         }
 
         var entityInfo = new EntityInfo(tableName, type, columns, indexes, keys);
+
+        new LimitsEnforcer(entityInfo).enforce();
+
         entityInfoByClassName.put(type.getQualifiedName(), entityInfo);
         return entityInfo;
     }

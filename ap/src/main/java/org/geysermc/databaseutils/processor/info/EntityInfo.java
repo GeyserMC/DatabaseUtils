@@ -27,6 +27,18 @@ public record EntityInfo(
         return null;
     }
 
+    public List<ColumnInfo> columnsFor(CharSequence[] columnNames) {
+        var columns = new ArrayList<ColumnInfo>();
+        for (CharSequence columnName : columnNames) {
+            var column = columnFor(columnName);
+            if (column == null) {
+                throw new IllegalArgumentException("Column " + columnName + " not found");
+            }
+            columns.add(column);
+        }
+        return columns;
+    }
+
     public TypeMirror asType() {
         return type.asType();
     }

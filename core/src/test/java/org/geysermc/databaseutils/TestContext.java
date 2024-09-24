@@ -21,6 +21,7 @@ import java.util.stream.Stream;
 import org.junit.jupiter.api.DynamicTest;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.JdbcDatabaseContainer;
+import org.testcontainers.containers.MSSQLServerContainer;
 import org.testcontainers.containers.MariaDBContainer;
 import org.testcontainers.containers.MongoDBContainer;
 import org.testcontainers.containers.MySQLContainer;
@@ -42,9 +43,9 @@ public final class TestContext {
             put(DatabaseType.MYSQL, new MySQLContainer<>("mysql:9.0.1"));
             put(DatabaseType.MONGODB, new MongoDBContainer("mongo:7.0.14"));
             put(DatabaseType.POSTGRESQL, new PostgreSQLContainer<>("postgres:16.4"));
-            // todo 'create table if not exists' is not a thing in mssqlserver
-            // put(DatabaseType.SQL_SERVER, new MSSQLServerContainer<>(MSSQLServerContainer.IMAGE +
-            // ":2022-latest").acceptLicense());
+            put(
+                    DatabaseType.SQL_SERVER,
+                    new MSSQLServerContainer<>(MSSQLServerContainer.IMAGE + ":2022-latest").acceptLicense());
             put(DatabaseType.ORACLE_DATABASE, new OracleContainer("gvenzl/oracle-free:23.5-slim-faststart"));
         }
     };

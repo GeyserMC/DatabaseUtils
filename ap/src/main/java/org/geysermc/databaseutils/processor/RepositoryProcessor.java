@@ -10,6 +10,8 @@ import com.google.auto.service.AutoService;
 import com.squareup.javapoet.JavaFile;
 import com.squareup.javapoet.TypeSpec;
 import java.io.IOException;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -206,21 +208,8 @@ public final class RepositoryProcessor extends AbstractProcessor {
     }
 
     private void error(Element cause, Throwable exception) {
-        // trimming down the exception until the first trace of ourselves.
-        // This would be either a test class or our RepositoryProcessor.
-        // This makes the exception much easier to read
-        int lastOwnTrace = 0;
-        StringBuilder stackTrace = new StringBuilder(exception.toString()).append('\n');
-        for (StackTraceElement traceElement : exception.getStackTrace()) {
-            stackTrace.append(traceElement.toString()).append('\n');
-            if (traceElement.getClassName().startsWith("org.geysermc.databaseutils")) {
-                lastOwnTrace = stackTrace.length() - 1;
-            }
-        }
-
-        if (lastOwnTrace != stackTrace.length() - 1) {
-            stackTrace.delete(lastOwnTrace, stackTrace.length());
-        }
-        this.messager.printMessage(Diagnostic.Kind.ERROR, stackTrace, cause);
+        var writer = new StringWriter();
+        exception.printStackTrace(new PrintWriter(writer));
+        this.messager.printMessage(Diagnostic.Kind.ERROR, writer.toString(), cause);
     }
 }
