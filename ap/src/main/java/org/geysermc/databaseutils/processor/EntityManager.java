@@ -23,19 +23,23 @@ import javax.lang.model.type.TypeMirror;
 import org.geysermc.databaseutils.meta.Entity;
 import org.geysermc.databaseutils.meta.Index;
 import org.geysermc.databaseutils.meta.Key;
+import org.geysermc.databaseutils.meta.Length;
 import org.geysermc.databaseutils.processor.info.ColumnInfo;
 import org.geysermc.databaseutils.processor.info.EntityInfo;
 import org.geysermc.databaseutils.processor.info.IndexInfo;
 import org.geysermc.databaseutils.processor.info.IndexInfo.IndexType;
 import org.geysermc.databaseutils.processor.type.LimitsEnforcer;
+import org.geysermc.databaseutils.processor.util.InvalidRepositoryException;
 import org.geysermc.databaseutils.processor.util.TypeUtils;
 
 final class EntityManager {
     private final Map<CharSequence, EntityInfo> entityInfoByClassName = new HashMap<>();
     private final TypeUtils typeUtils;
+    private final CustomLengthManager lengthManager;
 
-    EntityManager(final TypeUtils typeUtils) {
+    EntityManager(TypeUtils typeUtils, CustomLengthManager lengthManager) {
         this.typeUtils = Objects.requireNonNull(typeUtils);
+        this.lengthManager = Objects.requireNonNull(lengthManager);
     }
 
     Collection<EntityInfo> processedEntities() {
@@ -88,8 +92,25 @@ final class EntityManager {
             if (field.getModifiers().contains(Modifier.STATIC)) {
                 continue;
             }
+            var fieldType = typeUtils.toBoxedTypeElement(field.asType());
 
-            columns.add(new ColumnInfo(field.getSimpleName(), typeUtils.toBoxedTypeElement(field.asType()), field));
+            // length which will be used for table creation and limit enforcement
+            var length = field.getAnnotation(Length.class);
+            var maxLengthColumn = -1;
+            //noinspection ConstantValue you still have to validate it
+            if (length != null && length.max() > 0) {
+                maxLengthColumn = length.max();
+            }
+            var maxLengthType = lengthManager.maxLength(fieldType.getQualifiedName());
+            if (maxLengthType != null && maxLengthColumn != -1) {
+                // todo technically its an invalid Entity, make an error type for that
+                throw new InvalidRepositoryException(
+                        "@Length was already provided by a TypeCodec for column %s. A column cannot override that.",
+                        field.getSimpleName());
+            }
+            var maxLength = maxLengthType != null ? maxLengthType : maxLengthColumn;
+
+            columns.add(new ColumnInfo(field.getSimpleName(), fieldType, field, maxLength));
 
             if (hasAnnotation(field, Key.class)) {
                 keys.add(field.getSimpleName());

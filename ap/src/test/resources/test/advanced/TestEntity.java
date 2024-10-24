@@ -9,4 +9,4 @@ import org.geysermc.databaseutils.meta.Length;
 @Index(columns = {"c"})
 @Entity("hello")
 public record TestEntity(
-        @Key int a, @Key @Length(max = 50) String b, @Length(max = 10) String c, @Length(max = 16) UUID d) {}
+        @Key int a, @Key @Length(max = 50) String b, @Length(max = 10) String c, UUID d) {}

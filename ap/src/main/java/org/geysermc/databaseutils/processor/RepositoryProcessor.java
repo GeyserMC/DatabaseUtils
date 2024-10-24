@@ -27,9 +27,12 @@ import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
+import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeMirror;
 import javax.tools.Diagnostic;
 import org.geysermc.databaseutils.IRepository;
+import org.geysermc.databaseutils.codec.TypeCodec;
+import org.geysermc.databaseutils.meta.Length;
 import org.geysermc.databaseutils.meta.Query;
 import org.geysermc.databaseutils.meta.Repository;
 import org.geysermc.databaseutils.processor.action.ActionRegistry;
@@ -42,22 +45,24 @@ import org.geysermc.databaseutils.processor.util.TypeUtils;
 @AutoService(Processor.class)
 public final class RepositoryProcessor extends AbstractProcessor {
     private TypeUtils typeUtils;
-    private EntityManager entityManager;
     private Filer filer;
+    private CustomLengthManager lengthManager;
+    private EntityManager entityManager;
     private Messager messager;
 
     @Override
     public synchronized void init(ProcessingEnvironment processingEnv) {
         super.init(processingEnv);
         this.typeUtils = new TypeUtils(processingEnv.getTypeUtils(), processingEnv.getElementUtils());
-        this.entityManager = new EntityManager(typeUtils);
         this.filer = processingEnv.getFiler();
+        this.lengthManager = new CustomLengthManager(typeUtils, filer);
+        this.entityManager = new EntityManager(typeUtils, lengthManager);
         this.messager = processingEnv.getMessager();
     }
 
     @Override
     public Set<String> getSupportedAnnotationTypes() {
-        return Set.of(Repository.class.getCanonicalName());
+        return Set.of(Repository.class.getCanonicalName(), Length.class.getCanonicalName());
     }
 
     @Override
@@ -65,6 +70,38 @@ public final class RepositoryProcessor extends AbstractProcessor {
         if (env.processingOver()) {
             return true;
         }
+
+        lengthManager.read();
+
+        // register TypeCodecs first, for their potential Length annotation
+        for (Element element : env.getElementsAnnotatedWith(Length.class)) {
+            // only classes need to be processed, but field is valid
+            if (element.getKind() != ElementKind.CLASS) {
+                if (element.getKind() == ElementKind.FIELD) {
+                    continue;
+                }
+                error(element, "Only classes can be annotated with @Length");
+                continue;
+            }
+
+            var type = (TypeElement) element;
+            DeclaredType codecElement = null;
+            for (TypeMirror anInterface : type.getInterfaces()) {
+                if (!typeUtils.isType(TypeCodec.class, anInterface)) {
+                    continue;
+                }
+                codecElement = MoreTypes.asDeclared(anInterface);
+            }
+            if (codecElement == null) {
+                error(element, "Only TypeCodec classes can be annotated with @Length");
+                continue;
+            }
+
+            var codecType = codecElement.getTypeArguments().get(0);
+            lengthManager.customLength(codecType, element.getAnnotation(Length.class));
+        }
+
+        lengthManager.write();
 
         List<List<RepositoryGenerator>> results = new ArrayList<>();
         for (int i = 0; i < RegisteredGenerators.generatorCount(); i++) {

@@ -31,7 +31,6 @@ subprojects {
     spotless {
         java {
             palantirJavaFormat()
-            formatAnnotations()
         }
         ratchetFrom("origin/main")
     }

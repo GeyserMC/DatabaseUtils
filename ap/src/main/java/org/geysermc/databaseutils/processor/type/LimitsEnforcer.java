@@ -13,7 +13,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.geysermc.databaseutils.DatabaseType;
-import org.geysermc.databaseutils.meta.Length;
 import org.geysermc.databaseutils.processor.info.ColumnInfo;
 import org.geysermc.databaseutils.processor.info.EntityInfo;
 import org.geysermc.databaseutils.processor.info.IndexInfo;
@@ -132,13 +131,7 @@ public class LimitsEnforcer {
         return columns.stream()
                 .mapToInt(column -> {
                     var typeLimit = limits.limit(column.typeName());
-                    var length = column.annotation(Length.class);
-                    // todo allow TypeCodecs to specify the max length, instead of having to specify
-                    // it on the fields using the codecs
-                    if (length != null) {
-                        return typeLimit.validateAndReturnColumnLength(length.max(), column.name());
-                    }
-                    return typeLimit.validateAndReturnColumnLength(null, column.name());
+                    return typeLimit.validateAndReturnColumnLength(column.maxLength(), column.name());
                 })
                 .sum();
     }
@@ -469,8 +462,8 @@ public class LimitsEnforcer {
             return maxVaryingLength == UNLIMITED ? Integer.MAX_VALUE : maxVaryingLength;
         }
 
-        public int validateAndReturnColumnLength(Integer selfDefinedLength, CharSequence columnName) {
-            if (selfDefinedLength == null && varying()) {
+        public int validateAndReturnColumnLength(int selfDefinedLength, CharSequence columnName) {
+            if (selfDefinedLength == -1 && varying()) {
                 throw new InvalidRepositoryException(
                         "Expected %s to have a Length annotation specifying the max length", columnName);
             }

@@ -6,9 +6,10 @@
 package org.geysermc.databaseutils.codec;
 
 import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 import java.util.UUID;
+import org.geysermc.databaseutils.meta.Length;
 
+@Length(max = 16)
 final class UuidCodec implements TypeCodec<UUID> {
     static final UuidCodec INSTANCE = new UuidCodec();
 
@@ -38,10 +39,7 @@ final class UuidCodec implements TypeCodec<UUID> {
         }
 
         byte[] uuidBytes = new byte[16];
-        ByteBuffer.wrap(uuidBytes)
-                .order(ByteOrder.BIG_ENDIAN)
-                .putLong(input.getMostSignificantBits())
-                .putLong(input.getLeastSignificantBits());
+        ByteBuffer.wrap(uuidBytes).putLong(input.getMostSignificantBits()).putLong(input.getLeastSignificantBits());
         return uuidBytes;
     }
 }
